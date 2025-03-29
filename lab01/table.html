@@ -1,0 +1,113 @@
+<style>
+  * {
+    font-family: Arial, sans-serif;
+    --text-color: white;
+    --border: 1px solid #a0a0a0;
+    --border-head: 2px solid #c0c0c0;
+  }
+  body {
+    background-color: #19192d;
+    color: var(--text-color);
+  }
+  table {
+    border-collapse: collapse;
+    width: 100%;
+    margin-bottom: 1em;
+  }
+  tr {
+    border-top: var(--border);
+    border-bottom: var(--border);
+  }
+  thead tr {
+    border-top: var(--border);
+    border-bottom: var(--border-head);
+  }
+  td,
+  th {
+    text-align: left;
+    padding: 0.4em 0.8em;
+  }
+  td:nth-child(2),
+  th:nth-child(2) {
+    text-align: right;
+  }
+</style>
+<div
+  style="
+    width: 260px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+  "
+>
+  <table>
+    <thead>
+      <tr>
+        <th>Country</th>
+        <th>Migration rate<sup>1</sup></th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>UAE</td>
+        <td>33.14</td>
+      </tr>
+      <tr>
+        <td>Singapore</td>
+        <td>10.50</td>
+      </tr>
+      <tr>
+        <td>Portugal</td>
+        <td>4.66</td>
+      </tr>
+      <tr>
+        <td>Italy</td>
+        <td>1.64</td>
+      </tr>
+      <tr>
+        <td>Canada</td>
+        <td>1.61</td>
+      </tr>
+      <tr>
+        <td colspan="2" style="text-align: center; letter-spacing: 0.3em">
+          ...
+        </td>
+      </tr>
+      <tr>
+        <td>China</td>
+        <td>-2.53</td>
+      </tr>
+      <tr>
+        <td>Russia</td>
+        <td>-2.62</td>
+      </tr>
+      <tr>
+        <td>UK</td>
+        <td>-3.10</td>
+      </tr>
+      <tr>
+        <td>India</td>
+        <td>-4.95</td>
+      </tr>
+      <tr>
+        <td>South Africa</td>
+        <td>-6.62</td>
+      </tr>
+    </tbody>
+  </table>
+  <div style="text-align: justify; font-size: 80%">
+    <sup>1</sup> number of migrating millionaries per&nbsp;1000 currently
+    residing millionaries
+  </div>
+</div>
+<script>
+  // take every td:nth-child(2) and colorize according to value
+  const tds = document.querySelectorAll("td:nth-child(2)");
+  function getColor(value) {
+    return value > 0 ? "lime" : "red";
+  }
+  tds.forEach((td) => {
+    const value = parseFloat(td.textContent);
+    td.style.color = getColor(value);
+  });
+</script>
