@@ -1,9 +1,16 @@
 ---
 title: "WTO Report"
-author: "Maciej Zygmanowski, Sofiyan Mohammed"
+author: "Maciej Zygmanowski (160324), Sofiyan Mohammed (??????)"
 date: "2025-04-21"
-output: html_document
+output:
+  html_document:
+    includes:
+      before_body: header.html
+    toc: true
+    toc_float: true
 ---
+
+
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = FALSE, message = FALSE)
