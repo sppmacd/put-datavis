@@ -1,0 +1,49 @@
+---
+title: "WTO Report"
+author: "Maciej Zygmanowski, Sofiyan Mohammed"
+date: "2025-04-21"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE, message = FALSE)
+```
+
+```{r}
+library(ggplot2)
+library(arrow)
+library(tidyr)
+library(dplyr)
+```
+
+```{r csv_to_parquet, eval=FALSE}
+# The parquet files are committed anyways so you shouldn't need to run this.
+library(parquetize)
+
+csv_to_parquet(
+  path_to_file="wto_services_values/services_annual_dataset.csv",
+  path_to_parquet="wto_services_values/services_annual_dataset.parquet"
+)
+
+csv_to_parquet(
+  path_to_file="wto_merchandise_values/merchandise_values_annual_dataset.csv",
+  path_to_parquet="wto_merchandise_values/merchandise_values_annual_dataset.parquet"
+)
+```
+
+```{r load_data, message=TRUE}
+services_annual_dataset = arrow::read_parquet("wto_services_values/services_annual_dataset.parquet")
+dplyr::glimpse(services_annual_dataset)
+merchandise_values_annual_dataset = arrow::read_parquet("wto_merchandise_values/merchandise_values_annual_dataset.parquet")
+dplyr::glimpse(merchandise_values_annual_dataset)
+```
+
+```{r aggregate}
+services_annual_dataset %>% group_by(Year) %>% summarise(sum_value = sum(Value)) -> s_agg
+```
+
+This is some plot:
+
+```{r}
+ggplot(s_agg) + geom_line(aes(x=Year, y=sum_value))
+```
