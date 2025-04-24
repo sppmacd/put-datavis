@@ -1,51 +1,13 @@
----
-title: "WTO Report"
-author: "Maciej Zygmanowski (160324), Sofiyan Mohammed (??????)"
-date: "2025-04-21"
-output:
-  html_document:
-    includes:
-      before_body: header.html
-    toc: true
-    toc_float: true
----
-
-
-
-```{r setup, include=FALSE}
-knitr::opts_chunk$set(echo = FALSE, message = FALSE)
-```
-
-```{r}
 library(ggplot2)
 library(arrow)
 library(tidyr)
 library(dplyr)
-```
 
-```{r csv_to_parquet, eval=FALSE}
-# The parquet files are committed anyways so you shouldn't need to run this.
-library(parquetize)
-
-csv_to_parquet(
-  path_to_file="wto_services_values/services_annual_dataset.csv",
-  path_to_parquet="wto_services_values/services_annual_dataset.parquet"
-)
-
-csv_to_parquet(
-  path_to_file="wto_merchandise_values/merchandise_values_annual_dataset.csv",
-  path_to_parquet="wto_merchandise_values/merchandise_values_annual_dataset.parquet"
-)
-```
-
-```{r load_data, message=TRUE}
 services_annual_dataset = arrow::read_parquet("wto_services_values/services_annual_dataset.parquet")
 dplyr::glimpse(services_annual_dataset)
 merchandise_values_annual_dataset = arrow::read_parquet("wto_merchandise_values/merchandise_values_annual_dataset.parquet")
 dplyr::glimpse(merchandise_values_annual_dataset)
-```
 
-```{r preprocess}
 # concat these tables
 dataset = bind_rows(services_annual_dataset, merchandise_values_annual_dataset)
 
@@ -71,11 +33,20 @@ CODE_SERVICES_EXPORT = "ITS_CS_AX5"
 CODE_SERVICES_IMPORT = "ITS_CS_AM5"
 CODE_MERCHANDISE_EXPORT = "ITS_MTV_AX"
 CODE_MERCHANDISE_IMPORT = "ITS_MTV_AM"
-```
 
-## Top 5 countries by services/merchandise import/export
+dataset$IndicatorCode %>% unique
 
-```{r}
+# some basic info about data
+dataset_only_countries %>%
+  sapply(function(x) n_distinct(x))
+
+glimpse(dataset_only_countries)
+
+#########
+
+# TOP 5 COUNTRIES BY INDICATOR
+
+# dataset where one side is World, and the other is country
 should_keep_code = function(df) {
   indicator = df$IndicatorCode %in% c(CODE_SERVICES_EXPORT, CODE_SERVICES_IMPORT, CODE_MERCHANDISE_EXPORT, CODE_MERCHANDISE_IMPORT)
   reporter = df$ReporterCode
@@ -102,4 +73,5 @@ ggplot(reporters_by_year) +
   geom_line(aes(color=Reporter, x=Year, y=sum_value.x)) +
   facet_wrap(vars(Indicator)) +
   coord_trans(y="log")
-```
+
+

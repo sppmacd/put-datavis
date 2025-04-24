@@ -1,3 +1,5 @@
 wto_report.html
 *.csv
 wto_report*
+.Rdata
+.Rhistory
