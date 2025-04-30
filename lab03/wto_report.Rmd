@@ -21,6 +21,7 @@ library(ggplot2)
 library(arrow)
 library(tidyr)
 library(dplyr)
+library(stringr)
 ```
 
 ```{r csv_to_parquet, eval=FALSE}
@@ -40,25 +41,39 @@ csv_to_parquet(
 
 ```{r load_data, message=TRUE}
 services_annual_dataset = arrow::read_parquet("wto_services_values/services_annual_dataset.parquet")
-dplyr::glimpse(services_annual_dataset)
+#dplyr::glimpse(services_annual_dataset)
 merchandise_values_annual_dataset = arrow::read_parquet("wto_merchandise_values/merchandise_values_annual_dataset.parquet")
-dplyr::glimpse(merchandise_values_annual_dataset)
-```
+#dplyr::glimpse(merchandise_values_annual_dataset)
 
-```{r preprocess}
 # concat these tables
 dataset = bind_rows(services_annual_dataset, merchandise_values_annual_dataset)
 
 # drop useless columns (having only a single value)
 dataset %>% select(-one_of(c("Period", "PeriodCode", "FrequencyCode", "Frequency", "Unit", "UnitCode"))) -> dataset
+```
 
+```{r constants}
+RP_CODE_WORLD = "000"
+
+CODE_SERVICES_EXPORT = "ITS_CS_AX5"
+CODE_SERVICES_IMPORT = "ITS_CS_AM5"
+CODE_SERVICES_EXPORT_FULL = "ITS_CS_AX6"
+CODE_SERVICES_IMPORT_FULL = "ITS_CS_AM6"
+CODE_MERCHANDISE_EXPORT = "ITS_MTV_AX"
+CODE_MERCHANDISE_IMPORT = "ITS_MTV_AM"
+
+CODES_SERVICES = c(CODE_SERVICES_EXPORT_FULL, CODE_SERVICES_IMPORT_FULL)
+CODES_MERCHANDISE = c(CODE_MERCHANDISE_EXPORT, CODE_MERCHANDISE_IMPORT)
+```
+
+```{r preprocess}
 # drop non-country Reporters/Partners:
 # - 900 are various aggregates like "Europe" and we can filter them out
 # - 000 is "world" and we can drop it
 # - letter codes are to drop too.
 # - The rest are countries and we keep them.
 is_country = function(col) {
-  is_000 = col == "000"
+  is_000 = col == RP_CODE_WORLD
   is_9xx = as.numeric(col) >= 900
   is_9xx[is.na(is_9xx)] = TRUE
   is_9xx
@@ -67,10 +82,14 @@ is_country = function(col) {
 
 dataset[is_country(dataset$ReporterCode) & is_country(dataset$PartnerCode),] -> dataset_only_countries
 
-CODE_SERVICES_EXPORT = "ITS_CS_AX5"
-CODE_SERVICES_IMPORT = "ITS_CS_AM5"
-CODE_MERCHANDISE_EXPORT = "ITS_MTV_AX"
-CODE_MERCHANDISE_IMPORT = "ITS_MTV_AM"
+# List of product codes
+product_codes = dataset %>% select(ProductCode) %>% unique
+#print(product_codes, n=1000)
+
+# List of top-level product codes
+product_codes %>% filter((nchar(ProductCode) == 2) & (ProductCode != "TO")) -> top_level_product_codes
+
+max_year = max(dataset$Year)
 ```
 
 ## Top 5 countries by services/merchandise import/export
@@ -82,7 +101,7 @@ should_keep_code = function(df) {
   partner = df$PartnerCode
   reporter_is_country = is_country(reporter)
   partner_is_country = is_country(partner)
-  return(indicator & ((reporter == "000" & partner_is_country) | (partner == "000" & reporter_is_country)))
+  return(indicator & ((reporter == RP_CODE_WORLD & partner_is_country) | (partner == RP_CODE_WORLD & reporter_is_country)))
 }
 
 dataset_world_to_country <- dataset[should_keep_code(dataset), ]
@@ -102,4 +121,50 @@ ggplot(reporters_by_year) +
   geom_line(aes(color=Reporter, x=Year, y=sum_value.x)) +
   facet_wrap(vars(Indicator)) +
   coord_trans(y="log")
+```
+
+## Import/Export of selected countries by product
+
+```{r}
+countries = c("156", "840", "616") # China, USA, Poland
+
+dataset %>%
+  filter((ReporterCode %in% countries) &
+           (ProductCode %in% top_level_product_codes$ProductCode) &
+           (Year == max_year) & (PartnerCode == RP_CODE_WORLD)) ->
+  export_by_sector
+
+export_by_sector
+
+EXPORT=c(CODE_MERCHANDISE_EXPORT,CODE_SERVICES_EXPORT_FULL)
+IMPORT=c(CODE_MERCHANDISE_IMPORT,CODE_SERVICES_IMPORT_FULL)
+export_by_sector <- export_by_sector %>%
+  mutate(ImportExport=ifelse(IndicatorCode %in% EXPORT, "Export",
+                      ifelse(IndicatorCode %in% IMPORT, "Import", NA)))
+
+ggplot(export_by_sector) +
+  geom_bar(stat="identity", aes(x=str_c(ProductCode," ",Product), y=Value)) +
+  facet_grid(ImportExport~Reporter) +
+  coord_flip()
+```
+
+## Advertising exports
+
+(only USA, only to some countries)
+
+(just for fun)
+
+```{r}
+PRODUCT_ADVERTISING = "SJ221"
+
+dataset_only_countries %>%
+  filter((ProductCode == PRODUCT_ADVERTISING) & (Year == max_year)) %>%
+  # THIS lapply FIXES AN ERROR:
+  #Error in grid.Call(C_textBounds, as.graphicsAnnot(x$label), x$x, x$y,  : 
+  #                     invalid string in PangoCairo_Text
+  lapply(., iconv, to = "UTF-8") %>% tibble::as_tibble() %>%
+  mutate(Value=as.numeric(Value)) %>%
+  ggplot() +
+  geom_bar(stat="identity", aes(x=str_c(PartnerCode, " ", Partner),y=Value)) +
+  coord_flip()
 ```
