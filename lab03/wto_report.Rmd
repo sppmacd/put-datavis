@@ -4,6 +4,7 @@ author: "Maciej Zygmanowski (160324), Sofiyan Mohammed (??????)"
 date: "2025-04-21"
 output:
   html_document:
+    css: mystyle.css
     includes:
       before_body: header.html
     toc: true
@@ -54,6 +55,9 @@ dataset %>% select(-one_of(c("Period", "PeriodCode", "FrequencyCode", "Frequency
 
 ```{r constants}
 RP_CODE_WORLD = "000"
+CONTINENT_CODES = c("970", "950", "983", "905", "931", "932")
+
+P_CODE_SERVICES_TOTAL = "S"
 
 CODE_SERVICES_EXPORT = "ITS_CS_AX5"
 CODE_SERVICES_IMPORT = "ITS_CS_AM5"
@@ -64,6 +68,27 @@ CODE_MERCHANDISE_IMPORT = "ITS_MTV_AM"
 
 CODES_SERVICES = c(CODE_SERVICES_EXPORT_FULL, CODE_SERVICES_IMPORT_FULL)
 CODES_MERCHANDISE = c(CODE_MERCHANDISE_EXPORT, CODE_MERCHANDISE_IMPORT)
+
+
+SHORT_PRODUCT_NAMES = data.frame(ProductCode=c(
+  "SA",  "SB",
+  "SC",  "SD",
+  "SE",  "SF",
+  "SG",  "SH",
+  "SI",  "SJ",
+  "SK",  "SL",
+  "SN",  "AG",
+  "MA",  "MI"
+), ProductShortName=c(
+  "Contract Mfg.",  "Maintenance & Repair",
+  "Transport",  "Travel",
+  "Construction",  "Insurance & Pension",
+  "Financial",  "IP Use Charges",
+  "Telecom & Info",  "Other Business",
+  "Personal & Cultural",  "Gov. Goods",
+  "Unallocated",  "Agricultural",
+  "Manufactured Goods",  "Fuels & Mining"
+))
 ```
 
 ```{r preprocess}
@@ -83,7 +108,7 @@ is_country = function(col) {
 dataset[is_country(dataset$ReporterCode) & is_country(dataset$PartnerCode),] -> dataset_only_countries
 
 # List of product codes
-product_codes = dataset %>% select(ProductCode) %>% unique
+product_codes = dataset %>% select(ProductCode,Product) %>% unique
 #print(product_codes, n=1000)
 
 # List of top-level product codes
@@ -91,6 +116,18 @@ product_codes %>% filter((nchar(ProductCode) == 2) & (ProductCode != "TO")) -> t
 
 max_year = max(dataset$Year)
 ```
+
+<!----- HERE ACTUAL START OF THE REPORT ----->
+
+# Notation
+
+## Product codes
+
+```{r}
+knitr::kable(top_level_product_codes, format="html")
+```
+
+# Analysis
 
 ## Top 5 countries by services/merchandise import/export
 
@@ -146,6 +183,99 @@ ggplot(export_by_sector) +
   geom_bar(stat="identity", aes(x=str_c(ProductCode," ",Product), y=Value)) +
   facet_grid(ImportExport~Reporter) +
   coord_flip()
+```
+
+## Top 5 services sectors per continent
+
+```{r}
+plot_top_5_sectors_per_continent = function(IE) {
+  dataset_continents <- dataset %>% filter(
+    (ReporterCode %in% CONTINENT_CODES) & (PartnerCode == RP_CODE_WORLD) &
+      (Year == max_year) & (IndicatorCode %in% IE) &
+      (ProductCode %in% top_level_product_codes$ProductCode)
+  ) %>% group_by(ReporterCode) %>% slice_max(order_by=Value, n = 4) %>% ungroup()
+
+  grid_vector = c()
+  for (i in 1:length(CONTINENT_CODES)) {
+    continent_code <- CONTINENT_CODES[i]
+    continent_data <- dataset_continents %>% filter((ReporterCode == continent_code)) %>%
+      inner_join(SHORT_PRODUCT_NAMES, by="ProductCode")
+    continent_name = continent_data$Reporter
+    
+    # Create the bar plot
+    p <- ggplot(continent_data, aes(x = ProductShortName, y = Value)) +
+      geom_bar(stat = "identity") +
+      labs(title = continent_name,
+           y = "Value (mln $)",x = "") +
+      theme(axis.text.x = element_text(angle = 30, hjust=1))
+      
+    
+    # append plot
+    grid_vector <- c(grid_vector, list(p))
+  }
+  
+  # Create a grid layout
+  do.call(gridExtra::grid.arrange, c(grid_vector, ncol = 3))
+}
+```
+
+### Export
+
+```{r}
+plot_top_5_sectors_per_continent(EXPORT)
+```
+
+### Import
+
+```{r}
+plot_top_5_sectors_per_continent(IMPORT)
+```
+
+### Interesting findings
+
+"IP Use Charges"??? let's dive in what specifically they are doing...
+
+```{r}
+IP_USE_CHARGES = "SH"
+dataset %>% filter(
+  str_detect(ProductCode, IP_USE_CHARGES) &
+    is_country(dataset$ReporterCode) &
+    is_country(dataset$PartnerCode) &
+    (nchar(ProductCode) == 3) &
+    (Year == max_year) &
+    (IndicatorCode %in% EXPORT)
+) %>%
+  arrange(-Value) %>%
+  select(Reporter,Partner,Product,Value) %>%
+  lapply(., iconv, to = "UTF-8") %>% tibble::as_tibble() %>%
+  head(20) %>%
+  knitr::kable(format="html")
+```
+
+---
+
+Export from US to Ireland is interesting here... but can be explained: top companies
+in Ireland are actually controlled by their US parents, which is related
+to more favorable taxing in Ireland (see [Double Irish arrangement](https://en.wikipedia.org/wiki/Double_Irish_arrangement)).
+
+On this plot, Ireland is compared to another EU country (Germany)
+
+```{r}
+# TODO: Explain this Ireland import sharp rise in 2019.
+dataset %>% filter(
+  (ProductCode == "S") &
+  (dataset$Reporter %in% c("Ireland", "Germany")) &
+  (dataset$PartnerCode == "840") &
+  (IndicatorCode %in% c(CODE_SERVICES_EXPORT_FULL, CODE_SERVICES_IMPORT_FULL))
+) -> double_irish
+
+double_irish <- double_irish %>%
+  mutate(ImportExport=ifelse(IndicatorCode %in% EXPORT, "Export",
+                             ifelse(IndicatorCode %in% IMPORT, "Import", NA)))
+
+double_irish %>% select(ProductCode)
+
+double_irish %>% ggplot() + geom_line(aes(x=Year, y=Value, color=Reporter, linetype=ImportExport)) + labs(title="Ireland Import/Export of Services from/to USA")
 ```
 
 ## Advertising exports

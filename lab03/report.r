@@ -3,6 +3,7 @@ library(arrow)
 library(tidyr)
 library(dplyr)
 library(stringr)
+library(plotly)
 
 ## IMPORTANT !! BE CAREFUL WITH AGGREGATION:
 ## - ReporterCode/PartnerCode values overlap (some are already aggregated like "World")
@@ -30,6 +31,9 @@ library(stringr)
 
 ## Constants
 RP_CODE_WORLD = "000"
+CONTINENT_CODES = c("970", "950", "983", "905", "931", "932")
+
+P_CODE_SERVICES_TOTAL = "S"
 
 CODE_SERVICES_EXPORT = "ITS_CS_AX5"
 CODE_SERVICES_IMPORT = "ITS_CS_AM5"
@@ -75,6 +79,7 @@ print(product_codes, n=1000)
 
 # List of top-level product codes
 product_codes %>% filter((nchar(ProductCode) == 2) & (ProductCode != "TO")) -> top_level_product_codes
+product_codes %>% filter((nchar(ProductCode) == 3)) -> second_level_product_codes
 
 max_year = max(dataset$Year)
 
@@ -95,7 +100,7 @@ dataset_only_countries %>% sapply(function(x) n_distinct(x))
 
 # Service Product codes like S123 - IDK, duplicated with the above.
 service_codes = dataset %>% select(Product,ProductCode) %>% unique %>% arrange(., Product)
-print(service_codes, n=300)
+print(service_codes %>% arrange(., ProductCode), n=300)
 
 # Merchandise Product codes are encoded like some prefix code
 # e.g AG-Agricultural Products -> AGFO-Food
@@ -184,3 +189,146 @@ dataset_only_countries %>%
   ggplot() +
   geom_bar(stat="identity", aes(x=str_c(PartnerCode, " ", Partner),y=Value)) +
   coord_flip()
+
+#######
+
+SHORT_PRODUCT_NAMES = data.frame(ProductCode=c(
+  "SA",
+  "SB",
+  "SC",
+  "SD",
+  "SE",
+  "SF",
+  "SG",
+  "SH",
+  "SI",
+  "SJ",
+  "SK",
+  "SL",
+  "SN",
+  "AG",
+  "MA",
+  "MI"
+), ProductShortName=c(
+  "Contract Mfg.",
+  "Maintenance & Repair",
+  "Transport",
+  "Travel",
+  "Construction",
+  "Insurance & Pension",
+  "Financial",
+  "IP Use Charges",
+  "Telecom & Info",
+  "Other Business",
+  "Personal & Cultural",
+  "Gov. Goods",
+  "Unallocated",
+  "Agricultural",
+  "Manufactured Goods",
+  "Fuels & Mining"
+))
+
+# top 5 sectors per continent
+dataset_continents <- dataset %>% filter(
+  (ReporterCode %in% CONTINENT_CODES) & (PartnerCode == RP_CODE_WORLD) &
+    (Year == max_year) &
+    (ProductCode %in% top_level_product_codes$ProductCode) &
+    (IndicatorCode %in% EXPORT)
+) %>% group_by(ReporterCode) %>% slice_max(order_by=Value, n = 4) %>% ungroup()
+
+dataset %>% filter(
+  (PartnerCode == RP_CODE_WORLD) &
+    (Year == max_year) &
+    (ProductCode %in% top_level_product_codes$ProductCode) &
+    (IndicatorCode == "ITS_MTV_AX")
+) %>% select(Reporter) %>% unique
+
+grid_vector = c()
+for (i in 1:length(CONTINENT_CODES)) {
+  continent_code <- CONTINENT_CODES[i]
+  continent_data <- dataset_continents %>%
+    filter(ReporterCode == continent_code) %>%
+    inner_join(SHORT_PRODUCT_NAMES, by="ProductCode")
+  continent_name = continent_data$Reporter
+  
+  # Create the bar plot
+  p <- ggplot(continent_data, aes(x = ProductShortName, y = Value)) +
+    geom_bar(stat = "identity") +
+    labs(title = continent_name,
+         y = "Value (mln $)",x = "") +
+    theme(axis.text.x = element_text(angle = 30, hjust=1))
+    
+  
+  # append plot
+  grid_vector <- c(grid_vector, list(p))
+}
+
+# Create a grid layout
+grid_layout <- do.call(gridExtra::grid.arrange, c(grid_vector, ncol = 3))
+grid_layout
+
+#######
+
+IP_USE_CHARGES = "SH"
+dataset %>% filter(
+  str_detect(ProductCode, IP_USE_CHARGES) &
+    is_country(dataset$ReporterCode) &
+    is_country(dataset$PartnerCode) &
+    (nchar(ProductCode) == 3) &
+    (Year == max_year) &
+    (IndicatorCode %in% EXPORT)
+) %>%
+  arrange(-Value) %>%
+  select(IndicatorCode,Reporter,Partner,ProductCode,Product,Value) %>% print(n=800)
+
+#######
+
+dataset %>% filter(
+  (ProductCode == "S") &
+  (dataset$Reporter %in% c("Ireland", "Germany")) &
+  (dataset$PartnerCode == "840") &
+  (IndicatorCode %in% c(CODE_SERVICES_EXPORT_FULL, CODE_SERVICES_IMPORT_FULL))
+) -> double_irish
+
+double_irish <- double_irish %>%
+  mutate(ImportExport=ifelse(IndicatorCode %in% EXPORT, "Export",
+                             ifelse(IndicatorCode %in% IMPORT, "Import", NA)))
+
+double_irish %>% select(ProductCode)
+
+double_irish %>% ggplot() + geom_line(aes(x=Year, y=Value, color=Reporter, linetype=ImportExport)) + labs(title="Ireland Import/Export of Services from/to USA")
+
+#######
+
+# Top 10 exporters and their top 5 importers (chord diagram)
+
+# install.packages("circlize")
+library(circlize)
+
+top_10_exporters = dataset %>% filter(
+  (IndicatorCode == CODE_SERVICES_EXPORT_FULL) &
+  (is_country(ReporterCode)) &
+  (PartnerCode == RP_CODE_WORLD) &
+  (ProductCode == P_CODE_SERVICES_TOTAL) &
+  (Year == max_year)
+) %>% arrange(., -Value) %>% head(10)
+
+top_10_exporters %>% select(Reporter,Value)
+
+for_chord_diagram <- dataset_only_countries %>%
+  filter(
+    (IndicatorCode == CODE_SERVICES_EXPORT_FULL) &
+    (ReporterCode %in% top_10_exporters$ReporterCode) &
+    (ProductCode == P_CODE_SERVICES_TOTAL) &
+    (Year == max_year)
+  ) %>%
+  group_by(Reporter) %>%
+  slice_max(order_by = Value, n = 5) %>%
+  ungroup %>%
+  transmute(from=Reporter, to=Partner, value=Value)
+
+print(for_chord_diagram,n=60)
+print(df)
+
+chordDiagram(for_chord_diagram)
+
