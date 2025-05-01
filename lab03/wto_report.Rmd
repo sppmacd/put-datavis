@@ -135,6 +135,9 @@ knitr::kable(top_level_product_codes, format="html")
 ## Top 5 countries by services/merchandise import/export
 
 ```{r}
+# TODO: port this to grid
+
+# dataset where one side is World, and the other is country
 should_keep_code = function(df) {
   indicator = df$IndicatorCode %in% c(CODE_SERVICES_EXPORT, CODE_SERVICES_IMPORT, CODE_MERCHANDISE_EXPORT, CODE_MERCHANDISE_IMPORT)
   reporter = df$ReporterCode
@@ -157,10 +160,10 @@ reporters_by_year = dataset_world_to_country %>%
   summarise(sum_value = sum(Value)) %>%
   inner_join(top_reporters_total, c("ReporterCode", "Reporter", "IndicatorCode"))
 
-ggplot(reporters_by_year) + GG_THEME +
+ggplot(reporters_by_year) +
   geom_line(aes(color=Reporter, x=Year, y=sum_value.x)) +
   facet_wrap(vars(Indicator)) +
-  coord_trans(y="log")
+  scale_y_log10()
 ```
 
 ## Import/Export of selected countries by product

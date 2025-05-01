@@ -119,6 +119,8 @@ print(dataset %>% select(ReporterCode,Reporter) %>% arrange(., Reporter) %>% uni
 
 # TOP 5 COUNTRIES BY INDICATOR by time
 
+# TODO: port this to grid
+
 # dataset where one side is World, and the other is country
 should_keep_code = function(df) {
   indicator = df$IndicatorCode %in% c(CODE_SERVICES_EXPORT, CODE_SERVICES_IMPORT, CODE_MERCHANDISE_EXPORT, CODE_MERCHANDISE_IMPORT)
@@ -145,7 +147,7 @@ reporters_by_year = dataset_world_to_country %>%
 ggplot(reporters_by_year) +
   geom_line(aes(color=Reporter, x=Year, y=sum_value.x)) +
   facet_wrap(vars(Indicator)) +
-  coord_trans(y="log")
+  scale_y_log10()
 
 #######
 
