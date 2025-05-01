@@ -24,6 +24,8 @@ library(tidyr)
 library(dplyr)
 library(stringr)
 library(plotly)
+
+GG_THEME = theme_bw()
 ```
 
 ```{r csv_to_parquet, eval=FALSE}
@@ -155,7 +157,7 @@ reporters_by_year = dataset_world_to_country %>%
   summarise(sum_value = sum(Value)) %>%
   inner_join(top_reporters_total, c("ReporterCode", "Reporter", "IndicatorCode"))
 
-ggplot(reporters_by_year) +
+ggplot(reporters_by_year) + GG_THEME +
   geom_line(aes(color=Reporter, x=Year, y=sum_value.x)) +
   facet_wrap(vars(Indicator)) +
   coord_trans(y="log")
@@ -180,7 +182,7 @@ export_by_sector <- export_by_sector %>%
   mutate(ImportExport=ifelse(IndicatorCode %in% EXPORT, "Export",
                       ifelse(IndicatorCode %in% IMPORT, "Import", NA)))
 
-ggplot(export_by_sector) +
+ggplot(export_by_sector) + GG_THEME +
   geom_bar(stat="identity", aes(x=str_c(ProductCode," ",Product), y=Value)) +
   facet_grid(ImportExport~Reporter) +
   coord_flip()
@@ -204,7 +206,7 @@ plot_top_5_sectors_per_continent = function(IE) {
     continent_name = continent_data$Reporter
     
     # Create the bar plot
-    p <- ggplot(continent_data, aes(x = ProductShortName, y = Value)) +
+    p <- ggplot(continent_data, aes(x = ProductShortName, y = Value)) + GG_THEME +
       geom_bar(stat = "identity") +
       labs(title = continent_name,
            y = "Value (mln $)",x = "") +
@@ -277,7 +279,7 @@ double_irish <- double_irish %>%
 
 double_irish %>% select(ProductCode)
 
-double_irish %>% ggplot(aes(x=Year, y=Value, color=Reporter, linetype=ImportExport)) +
+double_irish %>% ggplot(aes(x=Year, y=Value, color=Reporter, linetype=ImportExport)) + GG_THEME +
   geom_line() +
   geom_point() +
   labs(title="Ireland Import/Export of Services from/to USA over time")
@@ -285,7 +287,7 @@ double_irish %>% ggplot(aes(x=Year, y=Value, color=Reporter, linetype=ImportExpo
 
 This is how it looks when split by sector:
 
-```{r}
+```{r results='markup'}
 dataset %>% filter(
   (ProductCode %in% top_level_product_codes$ProductCode) &
     (dataset$Reporter == "Ireland") &
@@ -297,9 +299,7 @@ double_irish <- double_irish %>%
   mutate(ImportExport=ifelse(IndicatorCode %in% EXPORT, "Export",
                              ifelse(IndicatorCode %in% IMPORT, "Import", NA)))
 
-double_irish %>% select(ProductCode)
-
-ggplotly(double_irish %>% ggplot(aes(x=Year, y=Value, fill=ProductShortName)) +
+ggplotly(double_irish %>% ggplot(aes(x=Year, y=Value, fill=ProductShortName)) + GG_THEME +
   geom_area(position="stack") +
   labs(title="Ireland Import of Services from/to USA over time, by sector"))
 ```
@@ -331,7 +331,7 @@ dataset_only_countries %>%
   #                     invalid string in PangoCairo_Text
   lapply(., iconv, to = "UTF-8") %>% tibble::as_tibble() %>%
   mutate(Value=as.numeric(Value)) %>%
-  ggplot() +
+  ggplot() + GG_THEME +
   geom_bar(stat="identity", aes(x=str_c(PartnerCode, " ", Partner),y=Value)) +
   coord_flip()
 ```
