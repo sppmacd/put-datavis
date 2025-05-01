@@ -225,6 +225,9 @@ plot_top_5_sectors_per_continent = function(IE) {
 plot_top_5_sectors_per_continent(EXPORT)
 ```
 
+Most continents live off travel, it seems. Or maybe it's the easiest
+to calculate (most services are done locally, right?)
+
 ### Import
 
 ```{r}
