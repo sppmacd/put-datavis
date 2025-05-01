@@ -298,6 +298,25 @@ double_irish %>% select(ProductCode)
 
 double_irish %>% ggplot() + geom_line(aes(x=Year, y=Value, color=Reporter, linetype=ImportExport)) + labs(title="Ireland Import/Export of Services from/to USA")
 
+######
+
+dataset %>% filter(
+  (ProductCode %in% top_level_product_codes$ProductCode) &
+    (dataset$Reporter == "Ireland") &
+    (dataset$PartnerCode == "840") &
+    (IndicatorCode %in% c(CODE_SERVICES_IMPORT_FULL))
+) -> double_irish
+
+double_irish <- double_irish %>%
+  mutate(ImportExport=ifelse(IndicatorCode %in% EXPORT, "Export",
+                             ifelse(IndicatorCode %in% IMPORT, "Import", NA)))
+
+double_irish %>% select(ProductCode)
+
+double_irish %>% ggplot(aes(x=Year, y=Value, fill=Product)) +
+  geom_area(position="stack") +
+  labs(title="Ireland Import/Export of Services from/to USA")
+
 #######
 
 # Top 10 exporters and their top 5 importers (chord diagram)

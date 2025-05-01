@@ -14,7 +14,7 @@ output:
 
 
 ```{r setup, include=FALSE}
-knitr::opts_chunk$set(echo = FALSE, message = FALSE)
+knitr::opts_chunk$set(echo = FALSE, results = FALSE, message = FALSE)
 ```
 
 ```{r}
@@ -23,6 +23,7 @@ library(arrow)
 library(tidyr)
 library(dplyr)
 library(stringr)
+library(plotly)
 ```
 
 ```{r csv_to_parquet, eval=FALSE}
@@ -123,7 +124,7 @@ max_year = max(dataset$Year)
 
 ## Product codes
 
-```{r}
+```{r results=TRUE}
 knitr::kable(top_level_product_codes, format="html")
 ```
 
@@ -225,8 +226,9 @@ plot_top_5_sectors_per_continent = function(IE) {
 plot_top_5_sectors_per_continent(EXPORT)
 ```
 
-Most continents live off travel, it seems. Or maybe it's the easiest
-to calculate (most services are done locally, right?)
+Most continents export travel, it seems. Especially Australia.
+
+(TODO: Try to explain this.)
 
 ### Import
 
@@ -257,14 +259,11 @@ dataset %>% filter(
 
 ---
 
-Export from US to Ireland is interesting here... but can be explained: top companies
-in Ireland are actually controlled by their US parents, which is related
-to more favorable taxing in Ireland (see [Double Irish arrangement](https://en.wikipedia.org/wiki/Double_Irish_arrangement)).
-
-On this plot, Ireland is compared to another EU country (Germany)
+Export from US to Ireland is interesting here... let's see when that bump
+happened. On this plot, Ireland is compared to another EU country with similar
+import/export values (Germany):
 
 ```{r}
-# TODO: Explain this Ireland import sharp rise in 2019.
 dataset %>% filter(
   (ProductCode == "S") &
   (dataset$Reporter %in% c("Ireland", "Germany")) &
@@ -278,8 +277,43 @@ double_irish <- double_irish %>%
 
 double_irish %>% select(ProductCode)
 
-double_irish %>% ggplot() + geom_line(aes(x=Year, y=Value, color=Reporter, linetype=ImportExport)) + labs(title="Ireland Import/Export of Services from/to USA")
+double_irish %>% ggplot(aes(x=Year, y=Value, color=Reporter, linetype=ImportExport)) +
+  geom_line() +
+  geom_point() +
+  labs(title="Ireland Import/Export of Services from/to USA over time")
 ```
+
+This is how it looks when split by sector:
+
+```{r}
+dataset %>% filter(
+  (ProductCode %in% top_level_product_codes$ProductCode) &
+    (dataset$Reporter == "Ireland") &
+    (dataset$PartnerCode == "840") &
+    (IndicatorCode %in% c(CODE_SERVICES_IMPORT_FULL))
+) %>% inner_join(SHORT_PRODUCT_NAMES, by="ProductCode") -> double_irish
+
+double_irish <- double_irish %>%
+  mutate(ImportExport=ifelse(IndicatorCode %in% EXPORT, "Export",
+                             ifelse(IndicatorCode %in% IMPORT, "Import", NA)))
+
+double_irish %>% select(ProductCode)
+
+ggplotly(double_irish %>% ggplot(aes(x=Year, y=Value, fill=ProductShortName)) +
+  geom_area(position="stack") +
+  labs(title="Ireland Import of Services from/to USA over time, by sector"))
+```
+
+We can clearly see that "IP Use Charges" rises sharply somewhere between 2016
+and 2020 (there is no data points there, so we can't be sure when exactly).
+
+TODO: Try to actually come up with an explanation.
+
+(something like this):
+top companies in Ireland are actually controlled by their US parents, which want
+to avoid taxation
+(see [Double Irish arrangement](https://en.wikipedia.org/wiki/Double_Irish_arrangement)).
+but why exactly at that time ???
 
 ## Advertising exports
 
