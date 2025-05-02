@@ -4,6 +4,9 @@ library(tidyr)
 library(dplyr)
 library(stringr)
 library(plotly)
+library(readr)
+
+GG_THEME = theme_bw()
 
 ## IMPORTANT !! BE CAREFUL WITH AGGREGATION:
 ## - ReporterCode/PartnerCode values overlap (some are already aggregated like "World")
@@ -119,11 +122,26 @@ print(dataset %>% select(ReporterCode,Reporter) %>% arrange(., Reporter) %>% uni
 
 # TOP 5 COUNTRIES BY INDICATOR by time
 
-# TODO: port this to grid
+SHORT_INDICATOR_NAMES = data.frame(IndicatorCode=c(
+  CODE_SERVICES_EXPORT,
+  CODE_SERVICES_IMPORT,
+  CODE_SERVICES_EXPORT_FULL,
+  CODE_SERVICES_IMPORT_FULL,
+  CODE_MERCHANDISE_EXPORT,
+  CODE_MERCHANDISE_IMPORT
+), IndicatorShortName=c(
+  "Export (services)",
+  "Import (services)",
+  "Export (services)",
+  "Import (services)",
+  "Export (merchandise)",
+  "Import (merchandise)"
+))
 
 # dataset where one side is World, and the other is country
+INDICATORS = c(CODE_SERVICES_EXPORT, CODE_SERVICES_IMPORT, CODE_MERCHANDISE_EXPORT, CODE_MERCHANDISE_IMPORT)
 should_keep_code = function(df) {
-  indicator = df$IndicatorCode %in% c(CODE_SERVICES_EXPORT, CODE_SERVICES_IMPORT, CODE_MERCHANDISE_EXPORT, CODE_MERCHANDISE_IMPORT)
+  indicator = df$IndicatorCode %in% INDICATORS
   reporter = df$ReporterCode
   partner = df$PartnerCode
   reporter_is_country = is_country(reporter)
@@ -142,12 +160,76 @@ top_reporters_total = dataset_world_to_country %>%
 reporters_by_year = dataset_world_to_country %>%
   group_by(ReporterCode,Reporter,IndicatorCode,Year) %>%
   summarise(sum_value = sum(Value)) %>%
-  inner_join(top_reporters_total, c("ReporterCode", "Reporter", "IndicatorCode"))
+  inner_join(top_reporters_total, c("ReporterCode", "Reporter", "IndicatorCode")) %>%
+  inner_join(SHORT_INDICATOR_NAMES, by="IndicatorCode")
 
-ggplot(reporters_by_year) +
-  geom_line(aes(color=Reporter, x=Year, y=sum_value.x)) +
-  facet_wrap(vars(Indicator)) +
-  scale_y_log10()
+show_over_time = function() {
+  # dataset where one side is World, and the other is country
+  INDICATORS = c(CODE_SERVICES_EXPORT, CODE_SERVICES_IMPORT, CODE_MERCHANDISE_EXPORT, CODE_MERCHANDISE_IMPORT)
+  should_keep_code = function(df) {
+    indicator = df$IndicatorCode %in% INDICATORS
+    reporter = df$ReporterCode
+    partner = df$PartnerCode
+    reporter_is_country = is_country(reporter)
+    partner_is_country = is_country(partner)
+    return(indicator & ((reporter == RP_CODE_WORLD & partner_is_country) | (partner == RP_CODE_WORLD & reporter_is_country)))
+  }
+  
+  dataset_world_to_country <- dataset[should_keep_code(dataset), ]
+  
+  top_reporters_total = dataset_world_to_country %>%
+    group_by(ReporterCode,Reporter,IndicatorCode,Indicator) %>%
+    summarise(sum_value = sum(Value)) %>%
+    group_by(IndicatorCode,Indicator) %>%
+    slice_max(order_by = sum_value, n = 5)
+  
+  reporters_by_year = dataset_world_to_country %>%
+    group_by(ReporterCode,Reporter,IndicatorCode,Year) %>%
+    summarise(sum_value = sum(Value)) %>%
+    inner_join(top_reporters_total, c("ReporterCode", "Reporter", "IndicatorCode")) %>%
+    inner_join(SHORT_INDICATOR_NAMES, by="IndicatorCode")
+  
+  # thx https://stackoverflow.com/a/41637932
+  Reces_table <- read.table(text = "  Start        End
+                           1 1980-01-01 1980-07-01
+                           2 1981-07-01 1982-11-01
+                           3 1990-07-01 1991-03-01
+                           4 2001-03-01 2001-11-01
+                           5 2007-12-01 2009-06-01
+                           6 2020-03-01 2021-12-01", header = TRUE,
+                            stringsAsFactors = FALSE)
+  Reces_table$Start <- parse_date(Reces_table$Start, format="%Y-%m-%d")
+  Reces_table$End <- parse_date(Reces_table$End, format="%Y-%m-%d")
+  
+  grid_vector = c()
+  indicator_codes = 
+    for (i in 1:length(INDICATORS)) {
+      indicator <- INDICATORS[i]
+      reporters_by_year_for_indicator <- reporters_by_year %>% filter(IndicatorCode == indicator)
+      reporters_by_year_for_indicator$Year = parse_date(as.character(reporters_by_year_for_indicator$Year), format="%Y") 
+      print(reporters_by_year_for_indicator)
+      # Create the bar plot
+
+      print(min(reporters_by_year_for_indicator$Year))
+      print(max(reporters_by_year_for_indicator$Year))
+      print(Reces_table)
+      
+      p <- ggplot(reporters_by_year_for_indicator) + GG_THEME +
+              geom_line(aes(color=Reporter, x=Year, y=sum_value.x)) +
+              scale_y_log10() +
+              geom_rect(data = Reces_table, inherit.aes = FALSE,
+                        aes(xmin=Start, xmax=End, ymin=0, ymax=+Inf), 
+                        fill='pink', alpha=0.5) +
+              labs(title=reporters_by_year_for_indicator$IndicatorShortName, y="Value (mln $)")
+              
+      # append plot
+      grid_vector <- c(grid_vector, list(p))
+    }
+
+  # Create a grid layout
+  do.call(gridExtra::grid.arrange, c(grid_vector, ncol = 2))
+}
+show_over_time()
 
 #######
 
