@@ -380,7 +380,9 @@ double_irish <- double_irish %>%
 
 double_irish %>% select(ProductCode)
 
-double_irish %>% ggplot() + geom_line(aes(x=Year, y=Value, color=Reporter, linetype=ImportExport)) + labs(title="Ireland Import/Export of Services from/to USA")
+double_irish %>% ggplot() +
+  geom_line(aes(x=Year, y=Value, color=Reporter, linetype=ImportExport)) +
+  labs(title="Ireland Import/Export of Services from/to USA")
 
 ######
 
@@ -389,17 +391,20 @@ dataset %>% filter(
     (dataset$Reporter == "Ireland") &
     (dataset$PartnerCode == "840") &
     (IndicatorCode %in% c(CODE_SERVICES_IMPORT_FULL))
-) -> double_irish
+) %>% inner_join(SHORT_PRODUCT_NAMES, by="ProductCode") -> double_irish
 
 double_irish <- double_irish %>%
   mutate(ImportExport=ifelse(IndicatorCode %in% EXPORT, "Export",
                              ifelse(IndicatorCode %in% IMPORT, "Import", NA)))
 
-double_irish %>% select(ProductCode)
+double_irish <- double_irish %>%
+  mutate(ProductShortName=ifelse(ProductCode == "SH", ProductShortName, "Other")) %>%
+  group_by(Year,ProductShortName) %>%
+  summarize(Value=sum(Value))
 
-double_irish %>% ggplot(aes(x=Year, y=Value, fill=Product)) +
-  geom_area(position="stack") +
-  labs(title="Ireland Import/Export of Services from/to USA")
+double_irish %>% ggplot(aes(x=Year, y=Value, fill=ProductShortName)) + GG_THEME +
+           geom_area(position="stack") +
+           labs(title="Ireland Import of Services from/to USA over time, by sector")
 
 #######
 
