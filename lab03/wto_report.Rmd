@@ -234,6 +234,7 @@ show_over_time = function() {
 show_over_time()
 ```
 
+<!--
 ## Import/Export of selected countries by product
 
 ```{r}
@@ -258,6 +259,7 @@ ggplot(export_by_sector) + GG_THEME +
   facet_grid(ImportExport~Reporter) +
   coord_flip()
 ```
+-->
 
 ## Top 5 services sectors per continent
 
@@ -353,7 +355,7 @@ double_irish %>% select(ProductCode)
 double_irish %>% ggplot(aes(x=Year, y=Value, color=Reporter, linetype=ImportExport)) + GG_THEME +
   geom_line() +
   geom_point() +
-  labs(title="Ireland Import/Export of Services from/to USA over time")
+  labs(title="Ireland Import/Export of Services from/to USA over time", linetype="Import/Export")
 ```
 
 This is how it looks when split by sector:
@@ -377,7 +379,8 @@ double_irish <- double_irish %>%
 
 double_irish %>% ggplot(aes(x=Year, y=Value, fill=ProductShortName)) + GG_THEME +
            geom_area(position="stack") +
-           labs(title="Ireland Import of Services from/to USA over time, by sector")
+           labs(title="Ireland Import of Services from/to USA over time, by sector",
+                y="Value (mln $)", fill="Product")
 ```
 
 We can clearly see that "IP Use Charges" rises sharply somewhere between 2016
