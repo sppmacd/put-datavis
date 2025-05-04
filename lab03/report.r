@@ -1,4 +1,5 @@
 library(ggplot2)
+library(ggExtra)
 library(arrow)
 library(tidyr)
 library(dplyr)
@@ -37,6 +38,7 @@ RP_CODE_WORLD = "000"
 CONTINENT_CODES = c("970", "950", "983", "905", "931", "932")
 
 P_CODE_SERVICES_TOTAL = "S"
+P_CODE_MERCHANDISE_TOTAL = "TO"
 
 CODE_SERVICES_EXPORT = "ITS_CS_AX5"
 CODE_SERVICES_IMPORT = "ITS_CS_AM5"
@@ -77,8 +79,8 @@ is_country = function(col) {
 dataset[is_country(dataset$ReporterCode) & is_country(dataset$PartnerCode),] -> dataset_only_countries
 
 # List of product codes
-product_codes = dataset %>% select(ProductCode) %>% unique
-print(product_codes, n=1000)
+product_codes = dataset %>% select(Product,ProductCode) %>% unique
+print(product_codes %>% arrange(., ProductCode), n=1000)
 
 # List of top-level product codes
 product_codes %>% filter((nchar(ProductCode) == 2) & (ProductCode != "TO")) -> top_level_product_codes
@@ -114,7 +116,7 @@ merchandise_codes = dataset %>% filter(IndicatorCode %in% CODES_MERCHANDISE) %>%
 print(merchandise_codes, n=300)
 
 # Countries & their codes
-print(dataset %>% select(ReporterCode,Reporter) %>% arrange(., Reporter) %>% unique, n=1000)
+dataset %>% select(ReporterCode,Reporter) %>% arrange(., Reporter) %>% unique %>% write.csv("country_continents.csv")
 
 ########
 ########
@@ -439,4 +441,40 @@ print(for_chord_diagram,n=60)
 print(df)
 
 chordDiagram(for_chord_diagram)
+
+######
+
+# Import/export per country in continent
+# X-Services Import
+# Y-Services Export
+# Time-Year
+# Color-Continent
+
+country_continents = read.csv("country_continents.csv")
+country_continents$CountryCode = as.character(country_continents$CountryCode)
+
+
+ie_per_country_base <- dataset %>%
+  filter(PartnerCode == RP_CODE_WORLD & ((ProductCode == P_CODE_SERVICES_TOTAL) | (ProductCode == P_CODE_MERCHANDISE_TOTAL))) %>%
+  mutate(ImportExport=ifelse(IndicatorCode %in% EXPORT, "Export", ifelse(IndicatorCode %in% IMPORT, "Import", NA)))
+
+ie_per_country_base %>% select(-c(IndicatorCategory,ProductClassificationCode,ProductClassification)) %>% filter(ReporterCode=="918"&Year=="2005")
+
+ie_per_country <- ie_per_country_base %>%
+  pivot_wider(id_cols=c(ReporterCode,Reporter,Year,ProductCode), names_from=ImportExport, values_from=Value) %>%
+  inner_join(country_continents, by=c("ReporterCode"="CountryCode"), relationship="many-to-many") %>%
+  filter(Year==max_year)
+
+ie_per_country %>% sapply(function(x) n_distinct(x))
+
+ie_per_country %>% arrange(.,Reporter)
+
+plot <- ggplot(ie_per_country, aes(x=Import,y=Export,color=Continent,text=CountryName)) +
+  geom_abline(slope=1, intercept=0) +
+  geom_point() +
+  geom_smooth(inherit.aes=F, aes(x=Import,y=Export)) +
+  facet_grid(~ProductCode) +
+  scale_x_log10() + scale_y_log10()
+
+ggplotly(plot, tooltip=c("text"))
 

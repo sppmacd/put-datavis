@@ -62,6 +62,7 @@ RP_CODE_WORLD = "000"
 CONTINENT_CODES = c("970", "950", "983", "905", "931", "932")
 
 P_CODE_SERVICES_TOTAL = "S"
+P_CODE_MERCHANDISE_TOTAL = "TO"
 
 CODE_SERVICES_EXPORT = "ITS_CS_AX5"
 CODE_SERVICES_IMPORT = "ITS_CS_AM5"
@@ -74,41 +75,8 @@ CODES_SERVICES = c(CODE_SERVICES_EXPORT_FULL, CODE_SERVICES_IMPORT_FULL)
 CODES_MERCHANDISE = c(CODE_MERCHANDISE_EXPORT, CODE_MERCHANDISE_IMPORT)
 
 
-SHORT_PRODUCT_NAMES = data.frame(ProductCode=c(
-  "SA",  "SB",
-  "SC",  "SD",
-  "SE",  "SF",
-  "SG",  "SH",
-  "SI",  "SJ",
-  "SK",  "SL",
-  "SN",  "AG",
-  "MA",  "MI"
-), ProductShortName=c(
-  "Contract Mfg.",  "Maintenance & Repair",
-  "Transport",  "Travel",
-  "Construction",  "Insurance & Pension",
-  "Financial",  "IP Use Charges",
-  "Telecom & Info",  "Other Business",
-  "Personal & Cultural",  "Gov. Goods",
-  "Unallocated",  "Agricultural",
-  "Manufactured Goods",  "Fuels & Mining"
-))
-
-SHORT_INDICATOR_NAMES = data.frame(IndicatorCode=c(
-  CODE_SERVICES_EXPORT,
-  CODE_SERVICES_IMPORT,
-  CODE_SERVICES_EXPORT_FULL,
-  CODE_SERVICES_IMPORT_FULL,
-  CODE_MERCHANDISE_EXPORT,
-  CODE_MERCHANDISE_IMPORT
-), IndicatorShortName=c(
- "Export (services)",
- "Import (services)",
- "Export (services)",
- "Import (services)",
- "Export (merchandise)",
- "Import (merchandise)"
-))
+SHORT_PRODUCT_NAMES = read.csv("./short_product_names.csv")
+SHORT_INDICATOR_NAMES = read.csv("./short_indicator_names.csv")
 ```
 
 ```{r preprocess}
@@ -191,14 +159,7 @@ show_over_time = function() {
     inner_join(SHORT_INDICATOR_NAMES, by="IndicatorCode")
   
   # thx https://stackoverflow.com/a/41637932
-  Reces_table <- read.table(text = "  Start        End
-                           1 1980-01-01 1980-07-01
-                           2 1981-07-01 1982-11-01
-                           3 1990-07-01 1991-03-01
-                           4 2001-03-01 2001-11-01
-                           5 2007-12-01 2009-06-01
-                           6 2020-03-01 2021-12-01", header = TRUE,
-                            stringsAsFactors = FALSE)
+  Reces_table <-read.csv("./recessions.csv")
   Reces_table$Start <- parse_date(Reces_table$Start, format="%Y-%m-%d")
   Reces_table$End <- parse_date(Reces_table$End, format="%Y-%m-%d")
   
@@ -393,6 +354,50 @@ top companies in Ireland are actually controlled by their US parents, which want
 to avoid taxation
 (see [Double Irish arrangement](https://en.wikipedia.org/wiki/Double_Irish_arrangement)).
 but why exactly at that time ???
+
+## Compare how import correlates with export in various economies
+
+```{r results='markup'}
+# Import/export per country in continent
+# X-Services Import
+# Y-Services Export
+# Time-Year
+# Color-Continent
+
+country_continents = read.csv("country_continents.csv")
+country_continents$CountryCode = as.character(country_continents$CountryCode)
+
+ie_per_country_base <- dataset %>%
+  filter(PartnerCode == RP_CODE_WORLD & ((ProductCode == P_CODE_SERVICES_TOTAL) | (ProductCode == P_CODE_MERCHANDISE_TOTAL))) %>%
+  mutate(ImportExport=ifelse(IndicatorCode %in% EXPORT, "Export", ifelse(IndicatorCode %in% IMPORT, "Import", NA)))
+
+ie_per_country <- ie_per_country_base %>%
+  pivot_wider(id_cols=c(ReporterCode,Reporter,Year,ProductCode), names_from=ImportExport, values_from=Value) %>%
+  inner_join(country_continents, by=c("ReporterCode"="CountryCode"), relationship="many-to-many") %>%
+  filter(Year==max_year)
+
+plot <- ggplot(ie_per_country, aes(x=Import,y=Export,color=Continent,text=CountryName)) +
+  geom_abline(slope=1, intercept=0) +
+  geom_point() +
+  geom_smooth(inherit.aes=F, aes(x=Import,y=Export)) +
+  facet_grid(~ProductCode) +
+  scale_x_log10() + scale_y_log10()
+
+ggplotly(plot, tooltip=c("text"))
+```
+
+Import and export compared. **Black** line is the ideal, expected situation
+where import equals export. The <span style="color:blue">**blue**</span> smooth
+line shows how the correlation shows up in reality - smaller economies
+are skewed towards importing, especially for merchandise.
+
+We can also see that Asia & Europe generally import & export more than other
+continents, due to being more developed. North America is an interesting special
+case, with most countries being on the low end except some outliers (e.g USA).
+Africa and South America are in the middle. On the opposite side, we see
+Oceania, where most countries are small islands with not much opportunity to
+develop, and, because of being isolated, they have to import products
+from continental countries.
 
 ## Advertising exports
 
