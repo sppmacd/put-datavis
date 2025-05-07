@@ -107,6 +107,10 @@ max_year = max(dataset$Year)
 
 <!----- HERE ACTUAL START OF THE REPORT ----->
 
+# Summary
+
+This report shows exploratory data analysis of a 2023 WTO report of import and export of countries/groups of countries in various sectors of their economy. ...TODO
+
 # Notation
 
 ## Product codes
@@ -399,6 +403,7 @@ Oceania, where most countries are small islands with not much opportunity to
 develop, and, because of being isolated, they have to import products
 from continental countries.
 
+<!--
 ## Advertising exports
 
 (only USA, only to some countries)
@@ -419,3 +424,4 @@ dataset_only_countries %>%
   geom_bar(stat="identity", aes(x=str_c(PartnerCode, " ", Partner),y=Value)) +
   coord_flip()
 ```
+-->
