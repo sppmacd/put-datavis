@@ -1,9 +1,10 @@
 ---
 title: "WTO Report"
-author: "Maciej Zygmanowski (160324), Sofiyan Mohammed (??????)"
-date: "2025-04-21"
+author: "Maciej Zygmanowski (160324), Sofiyan Mohammed (161933)"
+date: "2025-05-10"
 output:
   html_document:
+    theme: cosmo
     css: mystyle.css
     includes:
       before_body: header.html
@@ -14,7 +15,7 @@ output:
 
 
 ```{r setup, include=FALSE}
-knitr::opts_chunk$set(echo = FALSE, results = FALSE, message = FALSE)
+knitr::opts_chunk$set(echo = FALSE, results = FALSE, message = FALSE, warning = FALSE)
 ```
 
 ```{r}
@@ -25,8 +26,12 @@ library(dplyr)
 library(stringr)
 library(plotly)
 library(readr)
+library(fmsb)
+library(scales)
 
-GG_THEME = theme_bw()
+GG_THEME = theme_bw() + theme(
+  text = element_text(family = "Source Sans Pro")
+)
 ```
 
 ```{r csv_to_parquet, eval=FALSE}
@@ -77,6 +82,8 @@ CODES_MERCHANDISE = c(CODE_MERCHANDISE_EXPORT, CODE_MERCHANDISE_IMPORT)
 
 SHORT_PRODUCT_NAMES = read.csv("./short_product_names.csv")
 SHORT_INDICATOR_NAMES = read.csv("./short_indicator_names.csv")
+
+DOLLAR_LABELS=scales::label_dollar(scale_cut = scales::cut_short_scale())
 ```
 
 ```{r preprocess}
@@ -109,21 +116,13 @@ max_year = max(dataset$Year)
 
 # Summary
 
-This report shows exploratory data analysis of a 2023 WTO report of import and export of countries/groups of countries in various sectors of their economy. ...TODO
-
-# Notation
-
-## Product codes
-
-```{r results=TRUE}
-knitr::kable(top_level_product_codes, format="html")
-```
+This report shows exploratory data analysis of a 2023 WTO report of import and export of countries/groups of countries in various sectors of their economy. Some interesting findings (concerning, for example, relation of USA with Ireland) are presented.
 
 # Analysis
 
 ## Top 5 countries by services/merchandise import/export
 
-On this plot, we see top 5 countries (for year `{r} max_year`) for every indicator (import/export
+On this plot, we see top 5 countries (for year `r max_year`) for every indicator (import/export
 of services/merchandise).
 
 We can see that:
@@ -133,7 +132,7 @@ We can see that:
 - China is top exporter of merchandise
 
 Recessions are marked <span style="background-color:pink">pink</span>. The 2008-2009 one is quite visible.
-Surprisingly, the 1980 recession has a bump. (TODO: why?)
+Surprisingly, the 1980 recession has a bump.
 
 ```{r}
 show_over_time = function() {
@@ -181,8 +180,8 @@ show_over_time = function() {
       print(Reces_table)
       
       p <- ggplot(reporters_by_year_for_indicator) + GG_THEME +
-              geom_line(aes(color=Reporter, x=Year, y=sum_value.x)) +
-              scale_y_log10() +
+              geom_line(aes(color=Reporter, x=Year, y=sum_value.x*1e6)) +
+              scale_y_log10(labels=DOLLAR_LABELS) +
               geom_rect(data = Reces_table, inherit.aes = FALSE,
                         aes(xmin=Start, xmax=End, ymin=0, ymax=+Inf), 
                         fill='pink', alpha=0.5) +
@@ -234,7 +233,8 @@ plot_top_5_sectors_per_continent = function(IE) {
     (ReporterCode %in% CONTINENT_CODES) & (PartnerCode == RP_CODE_WORLD) &
       (Year == max_year) & (IndicatorCode %in% IE) &
       (ProductCode %in% top_level_product_codes$ProductCode)
-  ) %>% group_by(ReporterCode) %>% slice_max(order_by=Value, n = 4) %>% ungroup()
+  ) %>% group_by(ReporterCode) %>% slice_max(order_by=Value, n = 4) %>% ungroup() %>%
+    mutate(Reporter = recode(Reporter, !!!c("Australia and New Zealand"="Australia and N.Zeal.", "South and Central America and the Caribbean"="South America")))
 
   grid_vector = c()
   for (i in 1:length(CONTINENT_CODES)) {
@@ -244,11 +244,12 @@ plot_top_5_sectors_per_continent = function(IE) {
     continent_name = continent_data$Reporter
     
     # Create the bar plot
-    p <- ggplot(continent_data, aes(x = ProductShortName, y = Value)) + GG_THEME +
+    p <- ggplot(continent_data, aes(x = ProductShortName, y = Value*1e6)) + GG_THEME +
       geom_bar(stat = "identity") +
       labs(title = continent_name,
            y = "Value (mln $)",x = "") +
-      theme(axis.text.x = element_text(angle = 30, hjust=1))
+      scale_y_continuous(labels=DOLLAR_LABELS) +
+      theme(axis.text.x = element_text(angle = 30, hjust=1), plot.title = element_text(size=10))
       
     
     # append plot
@@ -268,8 +269,6 @@ plot_top_5_sectors_per_continent(EXPORT)
 
 Most continents export travel, it seems. Especially Australia.
 
-(TODO: Try to explain this.)
-
 ### Import
 
 ```{r}
@@ -280,7 +279,7 @@ plot_top_5_sectors_per_continent(IMPORT)
 
 "IP Use Charges"??? let's dive in what specifically they are doing...
 
-```{r}
+```{r, results='markup'}
 IP_USE_CHARGES = "SH"
 dataset %>% filter(
   str_detect(ProductCode, IP_USE_CHARGES) &
@@ -320,7 +319,7 @@ double_irish %>% select(ProductCode)
 double_irish %>% ggplot(aes(x=Year, y=Value, color=Reporter, linetype=ImportExport)) + GG_THEME +
   geom_line() +
   geom_point() +
-  labs(title="Ireland Import/Export of Services from/to USA over time", linetype="Import/Export")
+  labs(title="Ireland Import/Export of Services from/to USA over time", linetype="Import/Export", y="Value (mln $)")
 ```
 
 This is how it looks when split by sector:
@@ -351,14 +350,6 @@ double_irish %>% ggplot(aes(x=Year, y=Value, fill=ProductShortName)) + GG_THEME 
 We can clearly see that "IP Use Charges" rises sharply somewhere between 2016
 and 2020 (there is no data points there, so we can't be sure when exactly).
 
-TODO: Try to actually come up with an explanation.
-
-(something like this):
-top companies in Ireland are actually controlled by their US parents, which want
-to avoid taxation
-(see [Double Irish arrangement](https://en.wikipedia.org/wiki/Double_Irish_arrangement)).
-but why exactly at that time ???
-
 ## Compare how import correlates with export in various economies
 
 ```{r results='markup'}
@@ -378,14 +369,21 @@ ie_per_country_base <- dataset %>%
 ie_per_country <- ie_per_country_base %>%
   pivot_wider(id_cols=c(ReporterCode,Reporter,Year,ProductCode), names_from=ImportExport, values_from=Value) %>%
   inner_join(country_continents, by=c("ReporterCode"="CountryCode"), relationship="many-to-many") %>%
-  filter(Year==max_year)
+  filter(Year==max_year) %>%
+  mutate(ProductCode = recode(ProductCode, !!!c("S" = "Services", "TO" = "Merchandise")), Import=Import*1e6, Export=Export*1e6)
+
+options(scipen = 999)
+
+breaks <- 10^(5:13)
 
 plot <- ggplot(ie_per_country, aes(x=Import,y=Export,color=Continent,text=CountryName)) +
   geom_abline(slope=1, intercept=0) +
   geom_point() +
   geom_smooth(inherit.aes=F, aes(x=Import,y=Export)) +
+  labs(y="Export", x="Import") +
   facet_grid(~ProductCode) +
-  scale_x_log10() + scale_y_log10()
+  scale_x_log10(breaks=breaks, labels=DOLLAR_LABELS) +
+  scale_y_log10(breaks=breaks, labels=DOLLAR_LABELS)
 
 ggplotly(plot, tooltip=c("text"))
 ```
@@ -425,3 +423,146 @@ dataset_only_countries %>%
   coord_flip()
 ```
 -->
+
+## Merchandise profile for top countries
+
+On both plots, value is % of the largest value.
+
+### Export
+
+```{r}
+# Short name mapping for Product
+short_names <- c(
+  "Agricultural products" = "Agric.",
+  "Automotive products" = "Auto",
+  "Transport equipment" = "Transport",
+  "Total merchandise" = "Total",
+  "Chemicals" = "Chemicals",
+  "Clothing" = "Clothing",
+  "Electronic data processing and office equipment" = "ElecData",
+  "Food" = "Food",
+  "Fuels" = "Fuels",
+  "Fuels and mining products" = "FuelsMin",
+  "Integrated circuits and electronic components" = "IC/Elec",
+  "Iron and steel" = "IronSteel",
+  "Machinery and transport equipment" = "Machinery",
+  "Manufactures" = "Manuf.",
+  "Office and telecom equipment" = "OfficeTel",
+  "Pharmaceuticals" = "Pharma",
+  "Telecommunications equipment" = "Telecom",
+  "Textiles" = "Textiles"
+)
+
+# --- Top countries
+exports <- merchandise_values_annual_dataset %>%
+  filter(
+    IndicatorCode == "ITS_MTV_AX",
+    Partner == "World",
+    ProductCode != "TO"                    # <-- Added filter here
+  )
+
+country_coverage <- exports %>%
+  group_by(Reporter) %>%
+  summarize(n_rows = n())
+top_countries <- country_coverage %>% arrange(desc(n_rows)) %>% head(5)
+selected_countries <- c("Australia", "Canada", "Japan")  # Use last plot's countries
+
+# --- Radar data with short names
+radar_df <- exports %>%
+  filter(Reporter %in% selected_countries, Year == max_year, ProductCode != "TO") %>%    # <-- Added filter here
+  group_by(Reporter, Product) %>%
+  summarize(Value = sum(Value, na.rm=TRUE)) %>%
+  group_by(Reporter) %>%
+  mutate(Percent = Value / sum(Value) * 100) %>%
+  ungroup() %>%
+  mutate(Product_short = recode(Product, !!!short_names)) %>%
+  select(Reporter, Product_short, Percent)
+
+# Reshape for radar
+radar_wide <- radar_df %>%
+  tidyr::pivot_wider(names_from = Product_short, values_from = Percent, values_fill = 0)
+
+max_row <- radar_wide %>% select(-Reporter) %>% summarise_all(~max(.))
+min_row <- radar_wide %>% select(-Reporter) %>% summarise_all(~min(.))
+radar_chart_data <- as.data.frame(rbind(max_row, min_row, radar_wide %>% select(-Reporter)))
+rownames(radar_chart_data) <- c("Max", "Min", radar_wide$Reporter)
+
+# --- Make less-intrusive axis color
+percent_col <- "#2e4053"  # Changed to requested color
+
+# Plot
+country_colors <- c("blue", "orange", "forestgreen")[1:length(selected_countries)]
+
+radarchart(
+  radar_chart_data,
+  axistype=1,
+  pcol=country_colors,
+  pfcol=adjustcolor(country_colors, alpha.f=0.22),
+  plwd=3,
+  plty=c(1,2,3),
+  title=paste0("Merchandise Exports Profile (", max_year, ")"),
+  cglty=1,
+  cglcol=percent_col,           # axis grid lines in requested color
+  axislabcol=percent_col,       # axis (% lines) labels in requested color
+  vlcex=0.95
+)
+legend("bottomright", legend = selected_countries, col = country_colors, lwd=3, lty=1:3, bg="white")
+```
+
+### Import
+
+```{r}
+imports <- merchandise_values_annual_dataset %>%
+  filter(
+    IndicatorCode == "ITS_MTV_AM",    # <--- Imports
+    Partner == "World",
+    ProductCode != "TO"
+  )
+
+country_coverage <- imports %>%
+  group_by(Reporter) %>%
+  summarize(n_rows = n())
+top_countries <- country_coverage %>% arrange(desc(n_rows)) %>% head(5)
+selected_countries <- c("Australia", "Canada", "Japan")  # Use last plot's countries
+
+# --- Radar data with short names
+radar_df <- imports %>%
+  filter(Reporter %in% selected_countries, Year == max_year, ProductCode != "TO") %>%    # <-- Added filter here
+  group_by(Reporter, Product) %>%
+  summarize(Value = sum(Value, na.rm=TRUE)) %>%
+  group_by(Reporter) %>%
+  mutate(Percent = Value / sum(Value) * 100) %>%
+  ungroup() %>%
+  mutate(Product_short = recode(Product, !!!short_names)) %>%
+  select(Reporter, Product_short, Percent)
+
+# Reshape for radar
+radar_wide <- radar_df %>%
+  tidyr::pivot_wider(names_from = Product_short, values_from = Percent, values_fill = 0)
+
+max_row <- radar_wide %>% select(-Reporter) %>% summarise_all(~max(.))
+min_row <- radar_wide %>% select(-Reporter) %>% summarise_all(~min(.))
+radar_chart_data <- as.data.frame(rbind(max_row, min_row, radar_wide %>% select(-Reporter)))
+rownames(radar_chart_data) <- c("Max", "Min", radar_wide$Reporter)
+
+# --- Make less-intrusive axis color
+percent_col <- "#2e4053"  # Changed to requested color
+
+# Plot
+country_colors <- c("blue", "orange", "forestgreen")[1:length(selected_countries)]
+
+radarchart(
+  radar_chart_data,
+  axistype=1,
+  pcol=country_colors,
+  pfcol=adjustcolor(country_colors, alpha.f=0.22),
+  plwd=3,
+  plty=c(1,2,3),
+  title=paste0("Merchandise Imports Profile (", max_year, ")"),
+  cglty=1,
+  cglcol=percent_col,           # axis grid lines in requested color
+  axislabcol=percent_col,       # axis (% lines) labels in requested color
+  vlcex=0.95
+)
+legend("bottomright", legend = selected_countries, col = country_colors, lwd=3, lty=1:3, bg="white")
+```
