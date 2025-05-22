@@ -7,18 +7,19 @@ output:
 runtime: shiny
 ---
 
-```{r global, include=FALSE}
+```{r global, include=FALSE, message=TRUE, warning=TRUE}
 # Load necessary packages
 library(dplyr)
 library(readr)
 library(tibble)
 library(shiny)
-library(shinyTree)
 library(ggplot2)
 library(plotly)
+library(stringr)
 
 # Load dataset (setwd() to repo/lab04)
 df <- read_csv("main_chinese_data.csv")
+categories_cn_en <- read_csv("categories_cn_en.csv")
 
 # Define main city tiers for mapping
 tiers_main <- c("first-tier city", "new first-tier city", "second-tier city", "third-tier city")
@@ -54,6 +55,149 @@ get_all_hours_data <- function() {
       .groups = 'drop'
     )
 }
+
+#######################
+
+# CUSTOM, INTERACTIVE TREE VIEW
+
+# expr is a dataframe with "level", "id", "parent_id", "text"
+renderTreeView <- function(expr) {
+  # deduplicate ids
+  expr <- expr %>% distinct(id, .keep_all = TRUE)
+
+	renderNode <- function(node_id) {
+    #logger::log_info(paste0(" Rendering node ID ", node_id))
+		# for now just a p and proper indent
+		node <- expr %>% filter(id == node_id)
+    # if nodes are empty, skip (How did this happen)
+    if (nrow(node) == 0) {
+      #logger::log_info(paste0(" No node found for ID ", node_id))
+      return()
+    }
+		node_text <- node$text
+		# render P
+		# indent based on level
+    # make node_level an actual number that will work in rep/paste
+    node_level <- as.integer(node$level)
+    #logger::log_info(paste0("times argument: ", node_level))
+    # add CSS margin dependent on level
+    style <- paste0("margin-left: ", (node_level - 1) * 20, "px;")
+    cat(knitr::knit_print(tags$p(
+      HTML(node_text),
+      style = style
+    )))
+	}
+
+	renderChildren <- function(node_id) {
+    #logger::log_info(paste0("Rendering children for node ID ", node_id))
+		# get children
+		children <- expr %>% filter(parent_id == node_id & parent_id != id)
+
+    # skip if empty
+    if (nrow(children) == 0) {
+      #logger::log_info(paste0(" No children for node ID ", node_id))
+      return()
+    }
+
+    #logger::log_info(paste0("  children ids: ", toString(children$id)))
+
+		# for each child, render it and its children
+		for (i in 1:nrow(children)) {
+			# get child id
+      #logger::log_info(" rendering child idx ", i, " of ", nrow(children), " for node ID ", node_id)
+			child_id <- children$id[i]
+			renderNode(child_id)
+			renderChildren(child_id)
+		}
+	}
+
+	# start with level 1 nodes
+	l1_nodes <- expr %>% filter(level == 1)
+
+	# render these nodes
+	for (i in 1:nrow(l1_nodes)) {
+    node_id <- l1_nodes$id[i]
+		renderNode(node_id)
+		renderChildren(node_id)
+	}
+}
+
+# expr is a dataframe with "level", "id", "parent_id", "text"
+convertToTree <- function(expr) {
+  logger::log_info("Converting to tree view beffff")
+  # new empty df
+  out_df = data.frame(
+    id = character(),
+    name = character(),
+    parent_name = character()
+  )
+
+  logger::log_info("Converting to tree view after")
+
+  # deduplicate ids
+  expr <- expr %>% distinct(id, .keep_all = TRUE)
+
+	renderNode <- function(node_id) {
+    #logger::log_info(paste0(" Rendering node ID ", node_id))
+		# for now just a p and proper indent
+		node <- expr %>% filter(id == node_id)
+    # if nodes are empty, skip (How did this happen)
+    if (nrow(node) == 0) {
+      #logger::log_info(paste0(" No node found for ID ", node_id))
+      return()
+    }
+		node_text <- node$text %>% head(1)
+		# render P
+		# indent based on level
+    # make node_level an actual number that will work in rep/paste
+    node_level <- as.integer(node$level) %>% head(1)
+
+    # push proper indent (">") and text to out_df
+    out_name = paste0(strrep("> ", node_level - 1), " ", node_text)
+
+    logger::log_info(paste0("node: ", toString(node), "node_level: ", toString(node_level), " out_name: ", toString(out_name)))
+
+    parent <- expr %>% filter(id == node$parent_id)
+    parent_name <- ifelse(nrow(parent) > 0, parent$text, "")
+
+    out_df <<- rbind(out_df, data.frame(id = node_id, name = out_name, parent_name = parent_name))
+	}
+
+	renderChildren <- function(node_id) {
+    #logger::log_info(paste0("Rendering children for node ID ", node_id))
+		# get children
+		children <- expr %>% filter(parent_id == node_id & parent_id != id)
+
+    # skip if empty
+    if (nrow(children) == 0) {
+      #logger::log_info(paste0(" No children for node ID ", node_id))
+      return()
+    }
+
+    #logger::log_info(paste0("  children ids: ", toString(children$id)))
+
+		# for each child, render it and its children
+		for (i in 1:nrow(children)) {
+			# get child id
+      #logger::log_info(" rendering child idx ", i, " of ", nrow(children), " for node ID ", node_id)
+			child_id <- children$id[i]
+			renderNode(child_id)
+			renderChildren(child_id)
+		}
+	}
+
+	# start with level 1 nodes
+	l1_nodes <- expr %>% filter(level == 1)
+
+	# render these nodes
+	for (i in 1:nrow(l1_nodes)) {
+    node_id <- l1_nodes$id[i]
+		renderNode(node_id)
+		renderChildren(node_id)
+	}
+
+  return(out_df)
+}
 ```
 
 Overview
@@ -67,31 +211,26 @@ Dataset from the paper ["A Large-scale Dataset with Behavior, Attributes, and Co
 Categories
 ==========
 
-Column {data-width=200}
+Column
 -----------------------------------------------------------------------
 
 ### Categories
 
-```{r}
-```
+```{r results = "asis"}
+# category_id -> id
+# category_level -> level
+# category_name_en -> text
+# parent_id -> parent_id
+tv_data <- categories_cn_en %>% 
+	select(level = category_level, 
+	       id = category_id, 
+	       parent_id = parent_id, 
+	       text = category_name_en)
+# renderTreeView(tv_data)
+tv_converted <- convertToTree(tv_data)
 
-```{r}
-tree_data <- list(
-  "Root" = list(
-    "Folder 1" = list(
-      "File 1-1",
-      "File 1-2"
-    ),
-    "Folder 2" = list(
-      "File 2-1",
-      "Folder 2-1" = list(
-        "File 2-1-1",
-        "File 2-1-2"
-      )
-    )
-  )
-)
-shinyTree("tree")
+# data table render
+renderDataTable(tv_converted)
 ```
 
 Column
