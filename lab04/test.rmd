@@ -13,11 +13,12 @@ library(dplyr)
 library(readr)
 library(tibble)
 library(shiny)
+library(shinyTree)
 library(ggplot2)
 library(plotly)
 
-# Load dataset (adjust path as needed)
-df <- read_csv("/home/sofiyan/Desktop/DV DARIUZ/final_dashboard/put-datavis/lab04/main_chinese_data.csv")
+# Load dataset (setwd() to repo/lab04)
+df <- read_csv("main_chinese_data.csv")
 
 # Define main city tiers for mapping
 tiers_main <- c("first-tier city", "new first-tier city", "second-tier city", "third-tier city")
@@ -54,6 +55,52 @@ get_all_hours_data <- function() {
     )
 }
 ```
+
+Overview
+========
+
+Help, about, logo etc.
+
+Dataset from the paper ["A Large-scale Dataset with Behavior, Attributes, and Content of Mobile Short-video Platform"](https://arxiv.org/pdf/2502.05922)
+(https://github.com/tsinghua-fib-lab/ShortVideo_dataset)
+
+Categories
+==========
+
+Column {data-width=200}
+-----------------------------------------------------------------------
+
+### Categories
+
+```{r}
+```
+
+```{r}
+tree_data <- list(
+  "Root" = list(
+    "Folder 1" = list(
+      "File 1-1",
+      "File 1-2"
+    ),
+    "Folder 2" = list(
+      "File 2-1",
+      "Folder 2-1" = list(
+        "File 2-1-1",
+        "File 2-1-2"
+      )
+    )
+  )
+)
+shinyTree("tree")
+```
+
+Column
+-----------------------------------------------------------------------
+
+### Category Stats
+
+Engagement
+==========
 
 Column {data-width=400}
 -----------------------------------------------------------------------
