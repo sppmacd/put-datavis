@@ -1,0 +1,155 @@
+---
+title: "Short Video Platform Analytics"
+output:
+  flexdashboard::flex_dashboard:
+    orientation: columns
+    vertical_layout: fill
+runtime: shiny
+---
+
+```{r global, include=FALSE}
+# Load necessary packages
+library(dplyr)
+library(readr)
+library(tibble)
+library(shiny)
+library(ggplot2)
+library(plotly)
+
+# Load dataset (adjust path as needed)
+df <- read_csv("/home/sofiyan/Desktop/DV DARIUZ/final_dashboard/put-datavis/lab04/main_chinese_data.csv")
+
+# Define main city tiers for mapping
+tiers_main <- c("first-tier city", "new first-tier city", "second-tier city", "third-tier city")
+df$plot_tier <- ifelse(df$fre_city_level_en %in% tiers_main, df$fre_city_level_en, "other")
+
+# Convert character engagement columns to logical (if needed) and sum up engagement
+engage_cols <- c("click", "liked.", "follow", "collect", "forward")
+df[engage_cols] <- lapply(df[engage_cols], function(x) as.logical(ifelse(x == "True", TRUE, FALSE)))
+df$engagement <- rowSums(df[engage_cols], na.rm = TRUE)
+
+# Function to get hourly engagement data
+get_hourly_engagement <- function(hour) {
+  hour <- as.numeric(hour)
+  df %>%
+    filter(p_hour == hour) %>%
+    group_by(plot_tier) %>%
+    summarise(
+      total_engagement = sum(engagement, na.rm = TRUE),
+      avg_engagement = mean(engagement, na.rm = TRUE),
+      count = n(),
+      .groups = 'drop'
+    ) %>%
+    arrange(desc(total_engagement))
+}
+
+# Function to get all hours data for time series
+get_all_hours_data <- function() {
+  df %>%
+    group_by(p_hour, plot_tier) %>%
+    summarise(
+      total_engagement = sum(engagement, na.rm = TRUE),
+      avg_engagement = mean(engagement, na.rm = TRUE),
+      .groups = 'drop'
+    )
+}
+```
+
+Column {data-width=400}
+-----------------------------------------------------------------------
+
+### Controls
+
+```{r}
+inputPanel(
+  sliderInput("time_hour", 
+              "Pick Hour (0-23):", 
+              min = min(df$p_hour, na.rm = TRUE), 
+              max = max(df$p_hour, na.rm = TRUE), 
+              value = min(df$p_hour, na.rm = TRUE), 
+              step = 1, round = TRUE, sep = "",
+              animate = animationOptions(interval = 1200, loop = TRUE))
+)
+```
+
+### City Tier Engagement (Selected Hour)
+
+```{r}
+renderPlotly({
+  hour_data <- get_hourly_engagement(input$time_hour)
+  
+  p <- ggplot(hour_data, aes(x = reorder(plot_tier, total_engagement), 
+                            y = total_engagement, 
+                            fill = plot_tier)) +
+    geom_col() +
+    coord_flip() +
+    labs(
+      title = paste("Engagement by City Tier - Hour", input$time_hour),
+      x = "City Tier",
+      y = "Total Engagement"
+    ) +
+    theme_minimal() +
+    theme(legend.position = "none") +
+    scale_fill_viridis_d()
+  
+  ggplotly(p, tooltip = c("x", "y"))
+})
+```
+
+Column {data-width=600}
+-----------------------------------------------------------------------
+
+### Engagement Over Time by City Tier
+
+```{r}
+renderPlotly({
+  all_data <- get_all_hours_data()
+  
+  p <- ggplot(all_data, aes(x = p_hour, y = total_engagement, 
+                           color = plot_tier, group = plot_tier)) +
+    geom_line(size = 1.2) +
+    geom_point(size = 2) +
+    labs(
+      title = "Engagement Throughout the Day",
+      x = "Hour of Day (0-23)",
+      y = "Total Engagement",
+      color = "City Tier"
+    ) +
+    theme_minimal() +
+    scale_color_viridis_d() +
+    geom_vline(xintercept = input$time_hour, color = "red", linetype = "dashed", alpha = 0.7)
+  
+  ggplotly(p, tooltip = c("x", "y", "colour"))
+})
+```
+
+### Heatmap Alternative
+
+```{r}
+renderPlotly({
+  all_data <- get_all_hours_data()
+  
+  # Create a matrix for heatmap
+  heatmap_data <- all_data %>%
+    select(p_hour, plot_tier, total_engagement) %>%
+    tidyr::pivot_wider(names_from = plot_tier, values_from = total_engagement, values_fill = 0)
+  
+  # Convert to matrix for heatmap
+  mat <- as.matrix(heatmap_data[, -1])
+  rownames(mat) <- heatmap_data$p_hour
+  
+  plot_ly(
+    z = ~mat,
+    x = ~colnames(mat),
+    y = ~rownames(mat),
+    type = "heatmap",
+    colorscale = "YlOrRd",
+    hovertemplate = "Hour: %{y}<br>City Tier: %{x}<br>Engagement: %{z}<extra></extra>"
+  ) %>%
+  layout(
+    title = "Engagement Heatmap: Hour vs City Tier",
+    xaxis = list(title = "City Tier"),
+    yaxis = list(title = "Hour of Day")
+  )
+})
+```
