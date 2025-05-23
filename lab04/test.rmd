@@ -10,16 +10,35 @@ runtime: shiny
 ```{r global, include=FALSE, message=TRUE, warning=TRUE}
 # Load necessary packages
 library(dplyr)
-library(readr)
-library(tibble)
-library(shiny)
+library(flexdashboard)
 library(ggplot2)
+library(ggsci)
 library(plotly)
+library(readr)
+library(shiny)
 library(stringr)
+library(tibble)
 
 # Load dataset (setwd() to repo/lab04)
 df <- read_csv("main_chinese_data.csv")
 categories_cn_en <- read_csv("categories_cn_en.csv")
+
+#####
+
+# load the full dataset (setwd() to repo/lab04)
+interaction_filtered <- read_csv("interaction_filtered.csv")
+
+# keep only category_level = 1
+interaction_filtered <- interaction_filtered %>%
+  filter(category_level == 1)
+
+# deduplicate PIDs
+interaction_filtered <- interaction_filtered %>%
+  group_by(pid) %>%
+  slice(1) %>%
+  ungroup()
+
+#####
 
 # Define main city tiers for mapping
 tiers_main <- c("first-tier city", "new first-tier city", "second-tier city", "third-tier city")
@@ -55,149 +74,6 @@ get_all_hours_data <- function() {
       .groups = 'drop'
     )
 }
-
-#######################
-
-# CUSTOM, INTERACTIVE TREE VIEW
-
-# expr is a dataframe with "level", "id", "parent_id", "text"
-renderTreeView <- function(expr) {
-  # deduplicate ids
-  expr <- expr %>% distinct(id, .keep_all = TRUE)
-
-	renderNode <- function(node_id) {
-    #logger::log_info(paste0(" Rendering node ID ", node_id))
-		# for now just a p and proper indent
-		node <- expr %>% filter(id == node_id)
-    # if nodes are empty, skip (How did this happen)
-    if (nrow(node) == 0) {
-      #logger::log_info(paste0(" No node found for ID ", node_id))
-      return()
-    }
-		node_text <- node$text
-		# render P
-		# indent based on level
-    # make node_level an actual number that will work in rep/paste
-    node_level <- as.integer(node$level)
-    #logger::log_info(paste0("times argument: ", node_level))
-    # add CSS margin dependent on level
-    style <- paste0("margin-left: ", (node_level - 1) * 20, "px;")
-    cat(knitr::knit_print(tags$p(
-      HTML(node_text),
-      style = style
-    )))
-	}
-
-	renderChildren <- function(node_id) {
-    #logger::log_info(paste0("Rendering children for node ID ", node_id))
-		# get children
-		children <- expr %>% filter(parent_id == node_id & parent_id != id)
-
-    # skip if empty
-    if (nrow(children) == 0) {
-      #logger::log_info(paste0(" No children for node ID ", node_id))
-      return()
-    }
-
-    #logger::log_info(paste0("  children ids: ", toString(children$id)))
-
-		# for each child, render it and its children
-		for (i in 1:nrow(children)) {
-			# get child id
-      #logger::log_info(" rendering child idx ", i, " of ", nrow(children), " for node ID ", node_id)
-			child_id <- children$id[i]
-			renderNode(child_id)
-			renderChildren(child_id)
-		}
-	}
-
-	# start with level 1 nodes
-	l1_nodes <- expr %>% filter(level == 1)
-
-	# render these nodes
-	for (i in 1:nrow(l1_nodes)) {
-    node_id <- l1_nodes$id[i]
-		renderNode(node_id)
-		renderChildren(node_id)
-	}
-}
-
-# expr is a dataframe with "level", "id", "parent_id", "text"
-convertToTree <- function(expr) {
-  logger::log_info("Converting to tree view beffff")
-  # new empty df
-  out_df = data.frame(
-    id = character(),
-    name = character(),
-    parent_name = character()
-  )
-
-  logger::log_info("Converting to tree view after")
-
-  # deduplicate ids
-  expr <- expr %>% distinct(id, .keep_all = TRUE)
-
-	renderNode <- function(node_id) {
-    #logger::log_info(paste0(" Rendering node ID ", node_id))
-		# for now just a p and proper indent
-		node <- expr %>% filter(id == node_id)
-    # if nodes are empty, skip (How did this happen)
-    if (nrow(node) == 0) {
-      #logger::log_info(paste0(" No node found for ID ", node_id))
-      return()
-    }
-		node_text <- node$text %>% head(1)
-		# render P
-		# indent based on level
-    # make node_level an actual number that will work in rep/paste
-    node_level <- as.integer(node$level) %>% head(1)
-
-    # push proper indent (">") and text to out_df
-    out_name = paste0(strrep("> ", node_level - 1), " ", node_text)
-
-    logger::log_info(paste0("node: ", toString(node), "node_level: ", toString(node_level), " out_name: ", toString(out_name)))
-
-    parent <- expr %>% filter(id == node$parent_id)
-    parent_name <- ifelse(nrow(parent) > 0, parent$text, "")
-
-    out_df <<- rbind(out_df, data.frame(id = node_id, name = out_name, parent_name = parent_name))
-	}
-
-	renderChildren <- function(node_id) {
-    #logger::log_info(paste0("Rendering children for node ID ", node_id))
-		# get children
-		children <- expr %>% filter(parent_id == node_id & parent_id != id)
-
-    # skip if empty
-    if (nrow(children) == 0) {
-      #logger::log_info(paste0(" No children for node ID ", node_id))
-      return()
-    }
-
-    #logger::log_info(paste0("  children ids: ", toString(children$id)))
-
-		# for each child, render it and its children
-		for (i in 1:nrow(children)) {
-			# get child id
-      #logger::log_info(" rendering child idx ", i, " of ", nrow(children), " for node ID ", node_id)
-			child_id <- children$id[i]
-			renderNode(child_id)
-			renderChildren(child_id)
-		}
-	}
-
-	# start with level 1 nodes
-	l1_nodes <- expr %>% filter(level == 1)
-
-	# render these nodes
-	for (i in 1:nrow(l1_nodes)) {
-    node_id <- l1_nodes$id[i]
-		renderNode(node_id)
-		renderChildren(node_id)
-	}
-
-  return(out_df)
-}
 ```
 
 Overview
@@ -208,35 +84,171 @@ Help, about, logo etc.
 Dataset from the paper ["A Large-scale Dataset with Behavior, Attributes, and Content of Mobile Short-video Platform"](https://arxiv.org/pdf/2502.05922)
 (https://github.com/tsinghua-fib-lab/ShortVideo_dataset)
 
-Categories
+Categories {data-orientation=rows}
 ==========
 
-Column
+Column {.sidebar data-width=250}
 -----------------------------------------------------------------------
-
-### Categories
 
 ```{r results = "asis"}
-# category_id -> id
-# category_level -> level
-# category_name_en -> text
-# parent_id -> parent_id
-tv_data <- categories_cn_en %>% 
-	select(level = category_level, 
-	       id = category_id, 
-	       parent_id = parent_id, 
-	       text = category_name_en)
-# renderTreeView(tv_data)
-tv_converted <- convertToTree(tv_data)
+# only lvl 1 categories
+tv_data <- categories_cn_en %>%
+  filter(category_level == 1) %>%
+  # First letter always uppercase
+  mutate(title = str_to_title(category_name_en)) %>%
+  arrange(category_name_en)
 
-# data table render
-renderDataTable(tv_converted)
+# create c(title = category_id)
+logger::log_info(paste0("category_id: ", toString(tv_data$category_id)))
+logger::log_info(paste0("title: ", toString(tv_data$title)))
+tv_data_c <- setNames(tv_data$category_id, tv_data$title)
+
+# combo box
+renderUI({
+  selectInput("category", "Category:", tv_data_c)
+})
 ```
 
-Column
+Row
 -----------------------------------------------------------------------
 
-### Category Stats
+```{r }
+category_data <- reactive(
+  interaction_filtered %>%
+    filter(category_id == input$category) %>%
+    summarise(
+      views = n(),
+      clicks = sum(click, na.rm = TRUE),
+      comments = sum(comment, na.rm = TRUE),
+      follows = sum(follow, na.rm = TRUE),
+      collects = sum(collect, na.rm = TRUE),
+      forwards = sum(forward, na.rm = TRUE),
+      hates = sum(hate, na.rm = TRUE),
+      likes = sum(cvm_like, na.rm = TRUE),
+      .groups = 'drop'
+    )
+)
+```
+
+### Views
+
+```{r results = "asis"}
+renderValueBox({ valueBox(format(category_data()$views), color = "primary") })
+```
+
+### Clicks
+
+```{r results = "asis"}
+renderValueBox({ valueBox(format(category_data()$clicks), color = "primary") })
+```
+
+### Comments
+
+```{r results = "asis"}
+renderValueBox({ valueBox(format(category_data()$comments), color = "primary") })
+```
+
+### Follows
+
+```{r results = "asis"}
+renderValueBox({ valueBox(format(category_data()$follows), color = "primary") })
+```
+
+### Collects
+
+```{r results = "asis"}
+renderValueBox({ valueBox(format(category_data()$collects), color = "primary") })
+```
+
+### Forwards
+
+```{r results = "asis"}
+renderValueBox({ valueBox(format(category_data()$forwards), color = "primary") })
+```
+
+### Hates
+
+```{r results = "asis"}
+renderValueBox({ valueBox(format(category_data()$hates), color = "primary") })
+```
+
+### Likes
+
+```{r results = "asis"}
+renderValueBox({ valueBox(format(category_data()$likes), color = "primary") })
+```
+
+Row
+-----------------------------------------------------------------------
+
+### Gender distribution
+
+```{r results = "asis"}
+renderPlotly({
+  plot <- interaction_filtered %>%
+    filter(category_id == input$category) %>%
+    group_by(user_id, gender) %>%
+    ggplot(aes(fill=gender, x=gender)) +
+    geom_bar()
+  ggplotly(plot)
+})
+```
+
+### Views by Age
+
+```{r results = "asis"}
+renderPlotly({
+  plot <- interaction_filtered %>%
+    filter(category_id == input$category) %>%
+    ggplot(aes(x=age)) +
+    geom_histogram()
+  ggplotly(plot)
+})
+```
+
+### Views by Model Price
+
+```{r results = "asis"}
+renderPlotly({
+  plot <- interaction_filtered %>%
+    filter(category_id == input$category) %>%
+    ggplot(aes(x=mod_price)) +
+    geom_histogram()
+  ggplotly(plot)
+})
+```
+
+Row
+-----------------------------------------------------------------------
+
+### Video Durations (in seconds)
+
+```{r results = "asis"}
+renderPlotly({
+  plot <- interaction_filtered %>%
+    filter(category_id == input$category) %>%
+    group_by(title) %>%
+    summarise(
+      duration = mean(duration, na.rm = TRUE),
+      .groups = 'drop'
+    ) %>%
+    ggplot(aes(x=duration)) +
+    geom_histogram()
+  ggplotly(plot)
+})
+```
+
+### Video Play Time (hour)
+
+```{r results = "asis"}
+renderPlotly({
+  plot <- interaction_filtered %>%
+    filter(category_id == input$category) %>%
+    ggplot(aes(x=p_hour)) +
+    geom_bar()
+  ggplotly(plot)
+})
+```
 
 Engagement
 ==========
