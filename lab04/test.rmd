@@ -261,7 +261,7 @@ renderPlotly({
 })
 ```
 
-### Views by Age
+### User's Age
 
 ```{r results = "asis"}
 renderPlotly({
@@ -276,7 +276,7 @@ renderPlotly({
 })
 ```
 
-### Views by User's Phone Price
+### User's Phone Price
 
 ```{r results = "asis"}
 renderPlotly({
