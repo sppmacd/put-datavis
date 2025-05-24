@@ -115,26 +115,35 @@ ALPHA = 0.6
 
 # generate a color map from category_name that we will use for every
 # plot (we want a shared legend)
-category_colors <- reactive(setNames(
-  ggsci::pal_aaas()(length(unique(category_data()$category_name))),
-  unique(category_data()$category_name)
-))
+# (Use the default ggplot theme, because others won't get applied
+# for some reasone)
+category_colors <- reactive({
+  if (nrow(category_data()) == 0) {
+    return(NA)
+  }
+  gg_color_hue <- function(n) {
+    hues = seq(15, 375, length = n + 1)
+    hcl(h = hues, l = 65, c = 100)[1:n]
+  }
+  setNames(
+    gg_color_hue(length(unique(category_data()$category_name))),
+    unique(category_data()$category_name)
+  )
+})
 
-# here we will use these category colors
-GGTHEME = reactive(
-  labs(color=NULL, alpha=NULL, fill=NULL) +
-  scale_color_manual(values = category_colors(), guide="none") +
-  scale_fill_manual(values = category_colors(), guide="none") +
-  scale_alpha_continuous(range = c(ALPHA, ALPHA), guide="none") +
-  guides(
-    color = "none",
-    fill = "none",
-    alpha = "none"
-  ) + theme(legend.position='none')
-)
+# create a ggplot theme with category_colors()
+# (Somehow make this reactive)
+
+theme_category <- function() {
+  return (labs(color=NULL, alpha=NULL, fill=NULL) +
+    scale_alpha_continuous(range = c(ALPHA, ALPHA), guide="none")
+  )
+}
 
 PLOTLY = function (plot) {
-  ggplotly(plot) %>% hide_legend()
+  # tooltip: don't show alpha, color, fill
+  ggplotly(plot, tooltip = c("x", "y")) %>%
+    hide_legend()
 } 
 ```
 
@@ -161,17 +170,30 @@ renderUI({
 ```
 
 ```{r}
-# And HERE, show legend, common for all plots.
+# And HERE, show legend, common for all plots. (show in alphabetical
+# order) (HTML)
 
 renderUI({
+  colors = category_colors()
+  
+  if (any(is.na(colors))) {
+    return(tags$div(style="color: red", "Please select a category."))
+  }
+
+  colors <- colors[order(names(colors))]
   tags$div(
     style = "margin: 10px;",
-    tags$h4("Category Colors"),
-    tags$ul(
-      lapply(names(category_colors()), function(cat) {
-        tags$li(style = paste0("color: ", category_colors()[[cat]]), cat)
-      })
-    )
+    lapply(names(colors), function(name) {
+      # small colored square + label
+      tags$div(
+        style = paste0("display: flex; align-items: center; margin-bottom: 5px;"),
+        tags$div(
+          # force size
+          style = paste0("width: 20px; height: 20px; flex: 0 0 20px; background-color: ", colors[name], "; margin-right: 10px; border-radius: 50%;"),
+        ),
+        tags$span(name)
+      )
+    })
   )
 })
 ```
@@ -240,9 +262,10 @@ renderPlotly({
     stat_count(aes(y = ..prop.., group = category_name, fill = category_name), position = "dodge") +
     labs(y=NULL, x=NULL) +
     scale_x_discrete(labels=c("M"="Male", "F"="Female")) +
-    GGTHEME()
+    scale_color_manual(values = category_colors(), guide="none") +
+    scale_fill_manual(values = category_colors(), guide="none") +
+    theme_category()
   PLOTLY(plot)
-    
 })
 ```
 
@@ -254,7 +277,9 @@ renderPlotly({
     ggplot(aes(group=category_name, color=category_name, fill=category_name, x=age)) +
     geom_density(aes(alpha=ALPHA)) +
     labs(y=NULL, x=NULL) +
-    GGTHEME()
+    scale_color_manual(values = category_colors(), guide="none") +
+    scale_fill_manual(values = category_colors(), guide="none") +
+    theme_category()
   PLOTLY(plot)
 })
 ```
@@ -267,7 +292,9 @@ renderPlotly({
     ggplot(aes(group=category_name, color=category_name, fill=category_name, x=mod_price)) +
     geom_density(aes(alpha=ALPHA)) +
     labs(y=NULL, x="model price ($)") +
-    GGTHEME()
+    scale_color_manual(values = category_colors(), guide="none") +
+    scale_fill_manual(values = category_colors(), guide="none") +
+    theme_category()
   PLOTLY(plot)
 })
 ```
@@ -288,7 +315,9 @@ renderPlotly({
     ggplot(aes(group=category_name, color=category_name, fill=category_name, x=duration)) +
     geom_density(aes(alpha=ALPHA)) +
     labs(y=NULL, x="duration (seconds)") +
-    GGTHEME()
+    scale_color_manual(values = category_colors(), guide="none") +
+    scale_fill_manual(values = category_colors(), guide="none") +
+    theme_category()
   PLOTLY(plot)
 })
 ```
@@ -303,7 +332,9 @@ renderPlotly({
     stat_count(aes(y = ..prop.., group = category_name, fill = category_name), position = "dodge") +
     facet_grid(cols = vars(category_name), scales = "fixed") +
     labs(y=NULL, x="play hour") +
-    GGTHEME()
+    scale_color_manual(values = category_colors(), guide="none") +
+    scale_fill_manual(values = category_colors(), guide="none") +
+    theme_category()
   PLOTLY(plot)
 })
 ```
