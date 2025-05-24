@@ -113,69 +113,69 @@ Row
 -----------------------------------------------------------------------
 
 ```{r }
-category_data <- reactive(
-  interaction_filtered %>%
-    filter(category_id == input$category) %>%
-    summarise(
-      views = n(),
-      clicks = sum(click, na.rm = TRUE),
-      comments = sum(comment, na.rm = TRUE),
-      follows = sum(follow, na.rm = TRUE),
-      collects = sum(collect, na.rm = TRUE),
-      forwards = sum(forward, na.rm = TRUE),
-      hates = sum(hate, na.rm = TRUE),
-      likes = sum(cvm_like, na.rm = TRUE),
-      .groups = 'drop'
-    )
-)
+category_data <- reactive(interaction_filtered %>% filter(category_id == input$category))
+
+category_engagement = function() { category_data() %>%
+  summarise(
+    views = n(),
+    clicks = sum(click, na.rm = TRUE),
+    comments = sum(comment, na.rm = TRUE),
+    follows = sum(follow, na.rm = TRUE),
+    collects = sum(collect, na.rm = TRUE),
+    forwards = sum(forward, na.rm = TRUE),
+    hates = sum(hate, na.rm = TRUE),
+    likes = sum(cvm_like, na.rm = TRUE),
+    .groups = 'drop'
+  )
+}
 ```
 
 ### Views
 
 ```{r results = "asis"}
-renderValueBox({ valueBox(format(category_data()$views), color = "primary") })
+renderValueBox({ valueBox(format(category_engagement()$views), color = "primary") })
 ```
 
 ### Clicks
 
 ```{r results = "asis"}
-renderValueBox({ valueBox(format(category_data()$clicks), color = "primary") })
+renderValueBox({ valueBox(format(category_engagement()$clicks), color = "primary") })
 ```
 
 ### Comments
 
 ```{r results = "asis"}
-renderValueBox({ valueBox(format(category_data()$comments), color = "primary") })
+renderValueBox({ valueBox(format(category_engagement()$comments), color = "primary") })
 ```
 
 ### Follows
 
 ```{r results = "asis"}
-renderValueBox({ valueBox(format(category_data()$follows), color = "primary") })
+renderValueBox({ valueBox(format(category_engagement()$follows), color = "primary") })
 ```
 
 ### Collects
 
 ```{r results = "asis"}
-renderValueBox({ valueBox(format(category_data()$collects), color = "primary") })
+renderValueBox({ valueBox(format(category_engagement()$collects), color = "primary") })
 ```
 
 ### Forwards
 
 ```{r results = "asis"}
-renderValueBox({ valueBox(format(category_data()$forwards), color = "primary") })
+renderValueBox({ valueBox(format(category_engagement()$forwards), color = "primary") })
 ```
 
 ### Hates
 
 ```{r results = "asis"}
-renderValueBox({ valueBox(format(category_data()$hates), color = "primary") })
+renderValueBox({ valueBox(format(category_engagement()$hates), color = "primary") })
 ```
 
 ### Likes
 
 ```{r results = "asis"}
-renderValueBox({ valueBox(format(category_data()$likes), color = "primary") })
+renderValueBox({ valueBox(format(category_engagement()$likes), color = "primary") })
 ```
 
 Row
@@ -185,8 +185,7 @@ Row
 
 ```{r results = "asis"}
 renderPlotly({
-  plot <- interaction_filtered %>%
-    filter(category_id == input$category) %>%
+  plot <- category_data() %>%
     group_by(user_id, gender) %>%
     ggplot(aes(fill=gender, x=gender)) +
     geom_bar()
@@ -198,8 +197,7 @@ renderPlotly({
 
 ```{r results = "asis"}
 renderPlotly({
-  plot <- interaction_filtered %>%
-    filter(category_id == input$category) %>%
+  plot <- category_data() %>%
     ggplot(aes(x=age)) +
     geom_histogram()
   ggplotly(plot)
@@ -210,8 +208,7 @@ renderPlotly({
 
 ```{r results = "asis"}
 renderPlotly({
-  plot <- interaction_filtered %>%
-    filter(category_id == input$category) %>%
+  plot <- category_data() %>%
     ggplot(aes(x=mod_price)) +
     geom_histogram()
   ggplotly(plot)
@@ -225,8 +222,7 @@ Row
 
 ```{r results = "asis"}
 renderPlotly({
-  plot <- interaction_filtered %>%
-    filter(category_id == input$category) %>%
+  plot <- category_data() %>%
     group_by(title) %>%
     summarise(
       duration = mean(duration, na.rm = TRUE),
@@ -242,8 +238,7 @@ renderPlotly({
 
 ```{r results = "asis"}
 renderPlotly({
-  plot <- interaction_filtered %>%
-    filter(category_id == input$category) %>%
+  plot <- category_data() %>%
     ggplot(aes(x=p_hour)) +
     geom_bar()
   ggplotly(plot)
