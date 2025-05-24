@@ -6,7 +6,6 @@ output:
     vertical_layout: fill
 runtime: shiny
 ---
-
 ```{css, echo=FALSE}
 /* Custom styling for slider to remove blue fill */
 .irs-bar,
@@ -38,39 +37,42 @@ library(shiny)
 library(ggplot2)
 library(dplyr)
 library(viridis)
+library(readr)
 
-# Sample data generation with more realistic patterns
-set.seed(123)
-df <- data.frame(
-  p_hour = rep(0:23, each = 50),
-  plot_tier = sample(c("first-tier city", "new first-tier city", "second-tier city", 
-                      "third-tier city", "other"), 1200, replace = TRUE),
-  # Create more varied engagement patterns by hour and tier
-  engagement = rpois(1200, lambda = 100 + 
-                    rep(sin((0:23) * pi/12) * 30, each = 50) +
-                    rep(c(50, 40, 20, 10, 5), each = 240))  # Different base levels by tier
-)
+# Load the cleaned data
+df <- read_csv("cleaned_engagement_data.csv")
 
-# Function to get all hours data with proper aggregation
+# Ensure proper factor ordering
+df <- df %>%
+  mutate(plot_tier = factor(plot_tier, 
+                           levels = c("first-tier city", "new first-tier city", 
+                                    "second-tier city", "third-tier city", "other")))
+
+# Function to get all hours data
 get_all_hours_data <- function() {
   df %>%
-    group_by(p_hour, plot_tier) %>%
-    summarise(total_engagement = sum(engagement), .groups = 'drop') %>%
-    # Ensure proper factor ordering for consistent plotting
-    mutate(plot_tier = factor(plot_tier, 
-                             levels = c("first-tier city", "new first-tier city", 
-                                      "second-tier city", "third-tier city", "other")))
+    select(p_hour, plot_tier, total_engagement) %>%
+    arrange(p_hour, plot_tier)
 }
 
-# Function to get data for specific hour (for additional visualizations if needed)
+# Function to get data for specific hour
 get_hour_data <- function(hour) {
   df %>%
     filter(p_hour == hour) %>%
-    group_by(plot_tier) %>%
-    summarise(total_engagement = sum(engagement), .groups = 'drop') %>%
-    mutate(plot_tier = factor(plot_tier, 
-                             levels = c("first-tier city", "new first-tier city", 
-                                      "second-tier city", "third-tier city", "other")))
+    select(plot_tier, total_engagement) %>%
+    arrange(plot_tier)
+}
+
+# Function to get summary statistics
+get_summary_stats <- function() {
+  df %>%
+    summarise(
+      peak_hour = p_hour[which.max(total_engagement)],
+      peak_engagement = max(total_engagement),
+      avg_engagement = round(mean(total_engagement)),
+      total_records = n(),
+      city_count = n_distinct(plot_tier)
+    )
 }
 ```
 
@@ -84,13 +86,13 @@ inputPanel(
   sliderInput(
     "time_hour",
     label = tags$span(style="font-size:13px; font-weight:bold;", "Pick Hour (0-23):"),
-    min = min(df$p_hour, na.rm = TRUE),
-    max = max(df$p_hour, na.rm = TRUE),
-    value = min(df$p_hour, na.rm = TRUE),
+    min = 0,
+    max = 23,
+    value = 0,
     step = 1, 
     round = TRUE,
     sep = "",
-    width = '150px',
+    width = "150px",
     animate = animationOptions(interval = 1200, loop = TRUE)
   ),
   
@@ -103,7 +105,10 @@ inputPanel(
                            "Plasma" = "plasma", 
                            "Inferno" = "inferno",
                            "Magma" = "magma"),
-              selected = "viridis")
+              selected = "viridis"),
+  
+  # Smoothing option
+  checkboxInput("apply_smooth", "Apply smoothing", value = FALSE)
 )
 ```
 
@@ -121,16 +126,16 @@ renderPlot({
                            color = plot_tier, group = plot_tier)) +
     geom_line(size = 1.2, alpha = 0.8) +
     labs(
-      title = "Engagement Throughout the Day by City Tier",
+      title = "Real User Engagement Throughout the Day by City Tier",
       x = "Hour of Day (0-23)",
-      y = "Total Engagement",
+      y = "Total Engagement Score",
       color = "City Tier"
     ) +
     theme_minimal(base_size = 12) +
     theme(
-      plot.title = element_text(face = 'bold', hjust = 0.5, size = 14),
-      axis.title = element_text(face = 'bold'),
-      legend.title = element_text(face = 'bold'),
+      plot.title = element_text(face = "bold", hjust = 0.5, size = 14),
+      axis.title = element_text(face = "bold"),
+      legend.title = element_text(face = "bold"),
       legend.position = "bottom",
       panel.grid.minor = element_blank()
     ) +
@@ -141,6 +146,11 @@ renderPlot({
   # Add points if checkbox is selected
   if(input$show_points) {
     p <- p + geom_point(size = 2, alpha = 0.7)
+  }
+  
+  # Add smoothing if selected
+  if(input$apply_smooth) {
+    p <- p + geom_smooth(method = "loess", se = FALSE, alpha = 0.3)
   }
   
   # Apply color scheme
@@ -174,20 +184,20 @@ renderPlot({
   
   ggplot(heatmap_data, aes(x = hour_formatted, y = plot_tier, fill = total_engagement)) +
     geom_tile(color = "white", size = 0.5) +
-    scale_fill_gradient2(low = "yellow", mid = "orange", high = "red", 
+    scale_fill_gradient2(low = "lightblue", mid = "orange", high = "red", 
                         midpoint = median(heatmap_data$total_engagement),
                         name = "Total\nEngagement") +
     labs(
       x = "Hour of Day",
       y = "City Level",
-      title = "Engagement Heatmap: Hour vs City Level"
+      title = "Real Data: Engagement Heatmap by Hour and City Level"
     ) +
     theme_minimal(base_size = 12) +
     theme(
-      axis.title.x = element_text(face = 'bold'), 
-      axis.title.y = element_text(face = 'bold'),
-      plot.title = element_text(face = 'bold', hjust = 0.5, size = 14),
-      legend.title = element_text(face = 'bold'),
+      axis.title.x = element_text(face = "bold"), 
+      axis.title.y = element_text(face = "bold"),
+      plot.title = element_text(face = "bold", hjust = 0.5, size = 14),
+      legend.title = element_text(face = "bold"),
       axis.text.x = element_text(angle = 45, hjust = 1, size = 10),
       axis.text.y = element_text(size = 10),
       panel.grid = element_blank()
@@ -212,17 +222,20 @@ renderPlot({
     labs(
       title = paste("Engagement at Hour", input$time_hour),
       x = "City Tier",
-      y = "Total Engagement"
+      y = "Total Engagement Score"
     ) +
     theme_minimal(base_size = 12) +
     theme(
-      plot.title = element_text(face = 'bold', hjust = 0.5, size = 14),
-      axis.title = element_text(face = 'bold'),
+      plot.title = element_text(face = "bold", hjust = 0.5, size = 14),
+      axis.title = element_text(face = "bold"),
       axis.text.x = element_text(angle = 45, hjust = 1),
       legend.position = "none",
       panel.grid.minor = element_blank()
     ) +
-    scale_fill_viridis_d(alpha = 0.8)
+    scale_fill_viridis_d(alpha = 0.8) +
+    # Add value labels on bars
+    geom_text(aes(label = total_engagement), 
+              vjust = -0.5, size = 3, fontface = "bold")
 })
 ```
 
@@ -232,19 +245,21 @@ renderPlot({
 renderTable({
   all_data <- get_all_hours_data()
   hour_data <- get_hour_data(input$time_hour)
+  summary_stats <- get_summary_stats()
   
-  summary_stats <- data.frame(
-    Metric = c("Peak Hour", "Peak Engagement", "Current Hour Engagement", 
-               "Average Engagement", "Total Cities"),
+  summary_df <- data.frame(
+    Metric = c("Peak Hour", "Peak Engagement", "Current Hour Total", 
+               "Average Engagement", "Total Data Points", "City Tiers"),
     Value = c(
-      all_data$p_hour[which.max(all_data$total_engagement)],
-      format(max(all_data$total_engagement), big.mark = ","),
+      summary_stats$peak_hour,
+      format(summary_stats$peak_engagement, big.mark = ","),
       format(sum(hour_data$total_engagement), big.mark = ","),
-      format(round(mean(all_data$total_engagement)), big.mark = ","),
-      length(unique(all_data$plot_tier))
+      format(summary_stats$avg_engagement, big.mark = ","),
+      format(summary_stats$total_records, big.mark = ","),
+      summary_stats$city_count
     )
   )
   
-  summary_stats
+  summary_df
 }, striped = TRUE, hover = TRUE, bordered = TRUE)
 ```
