@@ -1,0 +1,12 @@
+name: ShortVideosDataset
+title: ShortVideosDataset
+username: sppmacd
+account: sppmacd
+server: shinyapps.io
+hostUrl: https://api.shinyapps.io/v1
+appId: 14818779
+bundleId: 10336356
+url: https://sppmacd.shinyapps.io/ShortVideosDataset/
+version: 1
+asMultiple: FALSE
+asStatic: FALSE

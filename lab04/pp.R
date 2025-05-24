@@ -21,6 +21,8 @@ interaction_filtered <- interaction_filtered %>%
   slice(1) %>%
   ungroup()
 
+write_csv(interaction_filtered, "interaction_filtered_small.csv")
+
 # PIDs per user
 interaction_filtered %>%
     filter(category_id == 2) %>%

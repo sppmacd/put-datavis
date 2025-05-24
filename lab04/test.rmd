@@ -27,17 +27,7 @@ categories_cn_en <- read_csv("categories_cn_en.csv")
 #####
 
 # load the full dataset (setwd() to repo/lab04)
-interaction_filtered <- read_csv("interaction_filtered.csv")
-
-# keep only category_level = 1
-interaction_filtered <- interaction_filtered %>%
-  filter(category_level == 1)
-
-# deduplicate PIDs
-interaction_filtered <- interaction_filtered %>%
-  group_by(pid) %>%
-  slice(1) %>%
-  ungroup()
+interaction_filtered <- read_csv("interaction_filtered_small.csv")
 
 #####
 
