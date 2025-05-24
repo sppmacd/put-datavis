@@ -88,31 +88,6 @@ Dataset from the paper ["A Large-scale Dataset with Behavior, Attributes, and Co
 Categories {data-orientation=rows}
 ==========
 
-Column {.sidebar data-width=250}
------------------------------------------------------------------------
-
-```{r results = "asis"}
-# only lvl 1 categories
-tv_data <- categories_cn_en %>%
-  filter(category_level == 1) %>%
-  # First letter always uppercase
-  mutate(title = str_to_title(category_name_en)) %>%
-  arrange(category_name_en)
-
-# create c(title = category_id)
-logger::log_info(paste0("category_id: ", toString(tv_data$category_id)))
-logger::log_info(paste0("title: ", toString(tv_data$title)))
-tv_data_c <- setNames(tv_data$category_id, tv_data$title)
-
-# combo box
-renderUI({
-  selectInput("categories", "Categories:", tv_data_c, multiple=T)
-})
-```
-
-Row
------------------------------------------------------------------------
-
 ```{r }
 category_data <- reactive(interaction_filtered %>%
     filter(category_id %in% input$categories) %>%
@@ -138,9 +113,71 @@ category_engagement = function() { category_data() %>%
 
 ALPHA = 0.6
 
-GGTHEME =
-  labs(color=NULL, alpha=NULL, fill=NULL)
+# generate a color map from category_name that we will use for every
+# plot (we want a shared legend)
+category_colors <- reactive(setNames(
+  ggsci::pal_aaas()(length(unique(category_data()$category_name))),
+  unique(category_data()$category_name)
+))
+
+# here we will use these category colors
+GGTHEME = reactive(
+  labs(color=NULL, alpha=NULL, fill=NULL) +
+  scale_color_manual(values = category_colors(), guide="none") +
+  scale_fill_manual(values = category_colors(), guide="none") +
+  scale_alpha_continuous(range = c(ALPHA, ALPHA), guide="none") +
+  guides(
+    color = "none",
+    fill = "none",
+    alpha = "none"
+  ) + theme(legend.position='none')
+)
+
+PLOTLY = function (plot) {
+  ggplotly(plot) %>% hide_legend()
+} 
 ```
+
+Column {.sidebar data-width=250}
+-----------------------------------------------------------------------
+
+```{r results = "asis"}
+# only lvl 1 categories
+tv_data <- categories_cn_en %>%
+  filter(category_level == 1) %>%
+  # First letter always uppercase
+  mutate(title = str_to_title(category_name_en)) %>%
+  arrange(category_name_en)
+
+# create c(title = category_id)
+logger::log_info(paste0("category_id: ", toString(tv_data$category_id)))
+logger::log_info(paste0("title: ", toString(tv_data$title)))
+tv_data_c <- setNames(tv_data$category_id, tv_data$title)
+
+# combo box
+renderUI({
+  selectInput("categories", "Categories:", tv_data_c, multiple=T)
+})
+```
+
+```{r}
+# And HERE, show legend, common for all plots.
+
+renderUI({
+  tags$div(
+    style = "margin: 10px;",
+    tags$h4("Category Colors"),
+    tags$ul(
+      lapply(names(category_colors()), function(cat) {
+        tags$li(style = paste0("color: ", category_colors()[[cat]]), cat)
+      })
+    )
+  )
+})
+```
+
+Row
+-----------------------------------------------------------------------
 
 ### Views
 
@@ -201,11 +238,11 @@ renderPlotly({
     group_by(user_id, gender) %>%
     ggplot(aes(group=category_name, fill=category_name, x=gender)) +
     stat_count(aes(y = ..prop.., group = category_name, fill = category_name), position = "dodge") +
-    guides(colour = guide_legend(nrow = 2)) +
     labs(y=NULL, x=NULL) +
     scale_x_discrete(labels=c("M"="Male", "F"="Female")) +
-    GGTHEME
-  ggplotly(plot)
+    GGTHEME()
+  PLOTLY(plot)
+    
 })
 ```
 
@@ -217,8 +254,8 @@ renderPlotly({
     ggplot(aes(group=category_name, color=category_name, fill=category_name, x=age)) +
     geom_density(aes(alpha=ALPHA)) +
     labs(y=NULL, x=NULL) +
-    GGTHEME
-  ggplotly(plot)
+    GGTHEME()
+  PLOTLY(plot)
 })
 ```
 
@@ -230,8 +267,8 @@ renderPlotly({
     ggplot(aes(group=category_name, color=category_name, fill=category_name, x=mod_price)) +
     geom_density(aes(alpha=ALPHA)) +
     labs(y=NULL, x="model price ($)") +
-    GGTHEME
-  ggplotly(plot)
+    GGTHEME()
+  PLOTLY(plot)
 })
 ```
 
@@ -251,8 +288,8 @@ renderPlotly({
     ggplot(aes(group=category_name, color=category_name, fill=category_name, x=duration)) +
     geom_density(aes(alpha=ALPHA)) +
     labs(y=NULL, x="duration (seconds)") +
-    GGTHEME
-  ggplotly(plot)
+    GGTHEME()
+  PLOTLY(plot)
 })
 ```
 
@@ -266,8 +303,8 @@ renderPlotly({
     stat_count(aes(y = ..prop.., group = category_name, fill = category_name), position = "dodge") +
     facet_grid(cols = vars(category_name), scales = "fixed") +
     labs(y=NULL, x="play hour") +
-    GGTHEME
-  ggplotly(plot)
+    GGTHEME()
+  PLOTLY(plot)
 })
 ```
 
