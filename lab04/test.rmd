@@ -10,6 +10,7 @@ runtime: shiny
 ```{r global, include=FALSE, message=TRUE, warning=TRUE}
 # Load necessary packages
 library(dplyr)
+library(DT)
 library(flexdashboard)
 library(ggplot2)
 library(ggsci)
@@ -241,7 +242,7 @@ renderValueBox({ valueBox(format(category_engagement()$likes), color = "primary"
 Row
 -----------------------------------------------------------------------
 
-### Gender distribution
+### User's Gender
 
 ```{r results = "asis"}
 renderPlotly({
@@ -275,7 +276,7 @@ renderPlotly({
 })
 ```
 
-### Views by Phone Price
+### Views by User's Phone Price
 
 ```{r results = "asis"}
 renderPlotly({
@@ -292,6 +293,26 @@ renderPlotly({
 
 Row
 -----------------------------------------------------------------------
+
+### Subcategories
+
+```{r results = "asis"}
+renderTable({
+  # from categories_cn_en take category_id and category_name_en
+  # of categories which have parent_id %in% input$categories
+
+  subcategories <- categories_cn_en %>%
+    filter(parent_id %in% input$categories) %>%
+    # get parent name (join, remember to rename parent_name field!)
+    inner_join(categories_cn_en, by = c("parent_id" = "category_id")) %>%
+    # get this name, parent name
+    select(Category = category_name_en.x, Parent = category_name_en.y) %>%
+    # order by parent then by name
+    arrange(Parent, Category)
+
+  subcategories
+})
+```
 
 ### Video Durations
 
@@ -313,7 +334,7 @@ renderPlotly({
 })
 ```
 
-### Video Play Time (hour)
+### Video Exposed Time
 
 ```{r results = "asis"}
 renderPlotly({
