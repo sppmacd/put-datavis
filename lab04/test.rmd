@@ -106,7 +106,7 @@ ALPHA = 0.6
 # generate a color map from category_name that we will use for every
 # plot (we want a shared legend)
 # (Use the default ggplot theme, because others won't get applied
-# for some reasone)
+# for some reason)
 category_colors <- reactive({
   if (nrow(category_data()) == 0) {
     return(NA)
@@ -178,7 +178,6 @@ renderUI({
       tags$div(
         style = paste0("display: flex; align-items: center; margin-bottom: 5px;"),
         tags$div(
-          # force size
           style = paste0("width: 20px; height: 20px; flex: 0 0 20px; background-color: ", colors[name], "; margin-right: 10px; border-radius: 50%;"),
         ),
         tags$span(name)
@@ -246,15 +245,17 @@ Row
 
 ```{r results = "asis"}
 renderPlotly({
-  plot <- category_data() %>%
-    group_by(user_id, gender) %>%
-    ggplot(aes(group=category_name, fill=category_name, x=gender)) +
-    stat_count(aes(y = ..prop.., group = category_name, fill = category_name), position = "dodge") +
-    labs(y=NULL, x=NULL) +
-    scale_x_discrete(labels=c("M"="Male", "F"="Female")) +
-    scale_color_manual(values = category_colors(), guide="none") +
-    scale_fill_manual(values = category_colors(), guide="none") +
-    theme_category()
+  cd <- category_data() %>% group_by(user_id, gender)
+  plot <- cd %>% ggplot(aes(group=category_name, fill=category_name, x=gender))
+  if (nrow(cd) > 0) {
+    plot <- plot +
+      stat_count(aes(y = ..prop.., group = category_name, fill = category_name), position = "dodge") +
+      labs(y=NULL, x=NULL) +
+      scale_x_discrete(labels=c("M"="Male", "F"="Female")) +
+      scale_color_manual(values = category_colors(), guide="none") +
+      scale_fill_manual(values = category_colors(), guide="none") +
+      theme_category()
+  }
   PLOTLY(plot)
 })
 ```
@@ -266,7 +267,7 @@ renderPlotly({
   plot <- category_data() %>%
     ggplot(aes(group=category_name, color=category_name, fill=category_name, x=age)) +
     geom_density(aes(alpha=ALPHA)) +
-    labs(y=NULL, x=NULL) +
+    labs(y="density", x=NULL) +
     scale_color_manual(values = category_colors(), guide="none") +
     scale_fill_manual(values = category_colors(), guide="none") +
     theme_category()
@@ -274,14 +275,14 @@ renderPlotly({
 })
 ```
 
-### Views by Model Price
+### Views by Phone Price
 
 ```{r results = "asis"}
 renderPlotly({
   plot <- category_data() %>%
     ggplot(aes(group=category_name, color=category_name, fill=category_name, x=mod_price)) +
     geom_density(aes(alpha=ALPHA)) +
-    labs(y=NULL, x="model price ($)") +
+    labs(y="density", x="phone price ($)") +
     scale_color_manual(values = category_colors(), guide="none") +
     scale_fill_manual(values = category_colors(), guide="none") +
     theme_category()
@@ -304,7 +305,7 @@ renderPlotly({
     ) %>%
     ggplot(aes(group=category_name, color=category_name, fill=category_name, x=duration)) +
     geom_density(aes(alpha=ALPHA)) +
-    labs(y=NULL, x="duration (seconds)") +
+    labs(y="density", x="duration (seconds)") +
     scale_color_manual(values = category_colors(), guide="none") +
     scale_fill_manual(values = category_colors(), guide="none") +
     theme_category()
@@ -316,15 +317,18 @@ renderPlotly({
 
 ```{r results = "asis"}
 renderPlotly({
-  plot <- category_data() %>%
-    ggplot(aes(x=p_hour)) +
-    # histogram normalized by category_name
-    stat_count(aes(y = ..prop.., group = category_name, fill = category_name), position = "dodge") +
-    facet_grid(cols = vars(category_name), scales = "fixed") +
-    labs(y=NULL, x="play hour") +
-    scale_color_manual(values = category_colors(), guide="none") +
-    scale_fill_manual(values = category_colors(), guide="none") +
-    theme_category()
+  cd <- category_data()
+  plot <- cd %>% ggplot(aes(x=p_hour))
+  if (nrow(cd) > 0) {
+    plot <- plot +
+      # histogram normalized by category_name
+      stat_count(aes(y = ..prop.., group = category_name, fill = category_name), position = "dodge") +
+      facet_grid(cols = vars(category_name), scales = "fixed") +
+      labs(y="factor", x="play hour") +
+      scale_color_manual(values = category_colors(), guide="none") +
+      scale_fill_manual(values = category_colors(), guide="none") +
+      theme_category()
+  }
   PLOTLY(plot)
 })
 ```
