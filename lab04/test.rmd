@@ -213,49 +213,43 @@ Row
 ### Views
 
 ```{r results = "asis"}
-renderValueBox({ valueBox(format(category_engagement()$views), color = "primary") })
+renderValueBox({ valueBox(format(category_engagement()$views), color = "primary", icon = "fa-eye") })
 ```
 
 ### Clicks
 
 ```{r results = "asis"}
-renderValueBox({ valueBox(format(category_engagement()$clicks), color = "primary") })
-```
-
-### Comments
-
-```{r results = "asis"}
-renderValueBox({ valueBox(format(category_engagement()$comments), color = "primary") })
-```
-
-### Follows
-
-```{r results = "asis"}
-renderValueBox({ valueBox(format(category_engagement()$follows), color = "primary") })
-```
-
-### Collects
-
-```{r results = "asis"}
-renderValueBox({ valueBox(format(category_engagement()$collects), color = "primary") })
-```
-
-### Forwards
-
-```{r results = "asis"}
-renderValueBox({ valueBox(format(category_engagement()$forwards), color = "primary") })
-```
-
-### Hates
-
-```{r results = "asis"}
-renderValueBox({ valueBox(format(category_engagement()$hates), color = "primary") })
+renderValueBox({ valueBox(format(category_engagement()$clicks), color = "primary", icon = "fa-computer-mouse") })
 ```
 
 ### Likes
 
 ```{r results = "asis"}
-renderValueBox({ valueBox(format(category_engagement()$likes), color = "primary") })
+renderValueBox({ valueBox(format(category_engagement()$likes), color = "primary", icon = "fa-thumbs-up") })
+```
+
+### Hates
+
+```{r results = "asis"}
+renderValueBox({ valueBox(format(category_engagement()$hates), color = "primary", icon = "fa-thumbs-down") })
+```
+
+### Comments
+
+```{r results = "asis"}
+renderValueBox({ valueBox(format(category_engagement()$comments), color = "primary", icon = "fa-comment") })
+```
+
+### Follows
+
+```{r results = "asis"}
+renderValueBox({ valueBox(format(category_engagement()$follows), color = "primary", icon = "fa-user-plus") })
+```
+
+### Forwards
+
+```{r results = "asis"}
+renderValueBox({ valueBox(format(category_engagement()$forwards), color = "primary", icon = "fa-share") })
 ```
 
 Row
@@ -625,7 +619,7 @@ renderTable({
   summary_stats <- get_summary_stats()
   
   summary_df <- data.frame(
-    Metric = c("Peak Hour", "Peak Engagement", "Current Hour Total", 
+    Metric = c("Peak Hour", "Peak Engagement", "Current Hour Total",
                "Average Engagement", "Total Data Points", "City Tiers"),
     Value = c(
       summary_stats$peak_hour,
