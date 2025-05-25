@@ -400,6 +400,31 @@ Engagement
 .section.sidebar {
   padding: 10px;
 }
+
+/* Styling for definitions section */
+.definitions {
+  background-color: #f8f9fa;
+  border: 1px solid #dee2e6;
+  border-radius: 0.25rem;
+  padding: 15px;
+  margin: 15px 0;
+  font-size: 12px;
+}
+
+.definitions h4 {
+  margin-top: 0;
+  color: #495057;
+  font-size: 14px;
+}
+
+.definitions ul {
+  margin-bottom: 0;
+  padding-left: 15px;
+}
+
+.definitions li {
+  margin-bottom: 5px;
+}
 ```
 
 ```{r setup, include=FALSE}
@@ -413,11 +438,15 @@ library(readr)
 # Load the cleaned data
 df <- read_csv("cleaned_engagement_data.csv")
 
-# Ensure proper factor ordering
+# Filter out "new first-tier city" as it has 0 metrics
+df <- df %>%
+  filter(plot_tier != "new first-tier city")
+
+# Ensure proper factor ordering (excluding new first-tier city)
 df <- df %>%
   mutate(plot_tier = factor(plot_tier, 
-                           levels = c("first-tier city", "new first-tier city", 
-                                    "second-tier city", "third-tier city", "other")))
+                           levels = c("first-tier city", "second-tier city", 
+                                    "third-tier city", "other")))
 
 # Function to get all hours data
 get_all_hours_data <- function() {
@@ -480,6 +509,26 @@ inputPanel(
   
   # Smoothing option
   checkboxInput("apply_smooth", "Apply smoothing", value = FALSE)
+)
+```
+
+### Definitions
+
+```{r}
+# Static definitions section
+tags$div(class = "definitions",
+  tags$h4("Key Definitions"),
+  tags$strong("City Tiers:"),
+  tags$ul(
+    tags$li(tags$strong("First-tier cities:"), " Beijing, Shanghai, Guangzhou, Shenzhen"),
+    tags$li(tags$strong("Second-tier cities:"), " Hangzhou, Nanjing, Jinan, Chongqing, Tianjin, Suzhou, Wuhan"),
+    tags$li(tags$strong("Third-tier cities:"), " Shijiazhuang, Taiyuan, Hohhot, Shenyang, Changchun, Harbin"),
+    tags$li(tags$strong("Other:"), " Smaller cities and towns not classified in main tiers")
+  ),
+  tags$br(),
+  tags$strong("Engagement Score:"), 
+  tags$p("Total count of user interactions including clicks, likes, follows, comments, collections, and forwards for videos watched during each hour.", 
+         style = "margin-top: 5px; margin-bottom: 0;")
 )
 ```
 
@@ -549,8 +598,8 @@ renderPlot({
   heatmap_data <- all_data %>%
     mutate(
       hour_formatted = sprintf("%02d", p_hour),
-      plot_tier = factor(plot_tier, levels = rev(c("first-tier city", "new first-tier city", 
-                                                  "second-tier city", "third-tier city", "other")))
+      plot_tier = factor(plot_tier, levels = rev(c("first-tier city", "second-tier city", 
+                                                  "third-tier city", "other")))
     )
   
   ggplot(heatmap_data, aes(x = hour_formatted, y = plot_tier, fill = total_engagement)) +
