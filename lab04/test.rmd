@@ -152,7 +152,7 @@ theme_category <- function() {
 
 PLOTLY = function (plot) {
   # tooltip: don't show alpha, color, fill
-  ggplotly(plot, tooltip = c("x", "y")) %>%
+  ggplotly(plot, tooltip = c("fill", "x", "y")) %>%
     hide_legend()
 } 
 ```
