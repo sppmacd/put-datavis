@@ -71,10 +71,29 @@ get_all_hours_data <- function() {
 Overview
 ========
 
-Help, about, logo etc.
+
+```{r}
+# ./PP_logotyp_ANG_RGB.png 50% width
+tags$img(src="PP_logotyp_ANG_RGB.png", width="700px", style="display: block; margin: auto;")
+tags$h1("Short Video Platform Analytics")
+```
+
+Maciej Zygmanowski, Sofiyan Mohammed
+
+This dashboard provides an interactive overview of user engagement
+on a short video platform, focusing on various categories and user
+demographics. It allows users to explore engagement metrics such
+as views, clicks, comments, etc. across different categories.
 
 Dataset from the paper ["A Large-scale Dataset with Behavior, Attributes, and Content of Mobile Short-video Platform"](https://arxiv.org/pdf/2502.05922)
 (https://github.com/tsinghua-fib-lab/ShortVideo_dataset)
+
+```{r}
+tags$h2("Tabs")
+```
+
+- [Categories](#categories) - Explore categories, their audience and video statistics.
+- [Engagement](#engagement) - Analyze user engagement patters across different categories and demographics.
 
 Categories {data-orientation=rows}
 ==========
