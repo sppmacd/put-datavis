@@ -548,7 +548,7 @@ renderPlot({
     labs(
       title = "Real User Engagement Throughout the Day by City Tier",
       x = "Hour of Day (0-23)",
-      y = "Total Engagement Score",
+      y = "Total Engagement Score (Thousands)",
       color = "City Tier"
     ) +
     theme_minimal(base_size = 12) +
@@ -560,6 +560,7 @@ renderPlot({
       panel.grid.minor = element_blank()
     ) +
     scale_x_continuous(breaks = seq(0, 23, 4)) +
+    scale_y_continuous(labels = function(x) paste0(round(x/1000, 1), "K")) +
     geom_vline(xintercept = input$time_hour, color = "red", 
                linetype = "dashed", alpha = 0.7, size = 1)
   
@@ -653,9 +654,9 @@ renderPlot({
       panel.grid.minor = element_blank()
     ) +
     scale_fill_viridis_d(alpha = 0.8) +
-    # Add value labels on bars
-    geom_text(aes(label = total_engagement), 
-              vjust = -0.5, size = 3, fontface = "bold")
+    # Add value labels on bars with larger font size
+    geom_text(aes(label = format(total_engagement, big.mark = ",")), 
+              vjust = -0.5, size = 5, fontface = "bold")
 })
 ```
 
